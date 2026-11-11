@@ -59,7 +59,7 @@ cd webapp
 clang -fobjc-arc -framework AppKit -o flashnotify flashnotify.m
 ```
 
-`flashwin.py` 提供 `FLASH_ENGINE=appkit|tk` 开关，默认 `appkit`；旧 tkinter 实现在本机 macOS 26 上不合成窗口内容，仅留作兜底，不要设回默认。
+`flashwin.py` 提供 `FLASH_ENGINE=appkit|tk` 开关，默认 `appkit`，`tk` 为旧实现兜底。
 
 ---
 
@@ -106,7 +106,7 @@ clang -fobjc-arc -framework AppKit -o flashnotify flashnotify.m
 
 - **三线穿阳 · 破 20 日高**（盘中链 1，当前唯一启用的穿线提醒）：开盘吞没三线 `open <= min(EMA12, EMA50, MA89)`；当日最高突破 `high > open 且 high > max(三线最高, 近 20 日最高收盘)`；**只看查询那一刻的快照**，含冲高回落，不等收盘确认。收盘确认归三线池/日报口径。
 - 预选池距离固定 4%；**严格优先于命中数**，0 提醒日属正常，不为凑数放宽判据。
-- 「⑥穿线阳」盘中链 2 默认停用：`tlbreak_alert.py` 中 `CROSSLINE_ENABLED=0`（设环境变量 `1` 才启用），代码与线位 API 全部保留。历史提醒记录已归档在 `webapp/alert_archive_bak/`，数据未删除。
+- 「⑥穿线阳」盘中链 2 默认停用：`tlbreak_alert.py` 中 `CROSSLINE_ENABLED=0`（设环境变量 `1` 才启用），代码与线位 API 全部保留。
 - **指数是环境闸门，不是择时标的**：`cross3_idx_timing.py` 只用触发日及之前的指数状态做过滤。
 - 研究结论（详见 `backtest/idx_trend_hold_result.json` 与 `daily/`）：EXPMA12 偏离度与未来收益在 1~10 日呈均值回归、20 日后转动量；所谓「均线回归」大部分靠 EMA12 自身下移而非价格涨回；模式 B 的价值在状态过滤，不在金叉事件择时。
 
@@ -114,20 +114,9 @@ clang -fobjc-arc -framework AppKit -o flashnotify flashnotify.m
 
 ---
 
-## 数据与隐私
+## 数据
 
-入库的是**策略产物**：`daily/` 日报、`backtest/klines/` 日 K、提醒档案 `*.jsonl`。
-
-以下本地私有数据由 `.gitignore` 排除，**从未进入任何提交**，公开仓库也请不要提交：
-
-| 类型 | 例子 |
-|---|---|
-| 登录会话 | `webapp/xq_state.json`（雪球 cookies） |
-| 真实持仓/交易 | `webapp/trades.json`、`win80.json`、`pool.json` 等运行时状态 |
-| 本机痕迹 | `backtest/fetch_state.json`（含绝对路径）、`*.log`、`.workbuddy/` |
-| 个人运营笔记 | `dist/发布信息卡.md` |
-
-行情数据来自公开接口，仅作研究用途，不保证准确性与实时性；请自行核验后再使用。
+`daily/` 日报、`backtest/klines/` 全市场日 K、提醒档案 `*.jsonl` 均为策略运行产物；行情取自公开接口。
 
 ---
 
