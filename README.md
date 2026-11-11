@@ -14,19 +14,11 @@
 - Web 服务与绝大多数脚本**只用标准库**，无需 `pip install`
 - 少数辅助脚本用到 `playwright`（雪球页面抓取，可选）；弹窗需要 Xcode Command Line Tools 的 `clang`
 
-### 路径约定
-
-脚本里把仓库根目录写死为 `~/WorkBuddy/Claw`（`server.py` 的 `ROOT/WEB`、`daily_run.py` 的 `BASE`、`supervisor.sh` 的 `W`）。请把仓库放在这个位置，或自行替换这些常量。
-
-```bash
-git clone https://github.com/xiliuhu2/expma.git ~/WorkBuddy/Claw
-```
-
 ### 启动工作台
 
 ```bash
-python3 ~/WorkBuddy/Claw/webapp/server.py 8765
-# 浏览器打开 http://127.0.0.1:8765
+python3 webapp/server.py 8765
+# http://127.0.0.1:8765
 ```
 
 `server.py` 每次请求都重新读 `index.html`，改前端**不用重启**；改 `server.py` 的 API 返回字段后必须重启，否则常驻的提醒守护会拿到旧字段而报错。
@@ -34,7 +26,7 @@ python3 ~/WorkBuddy/Claw/webapp/server.py 8765
 ### 收盘跑批
 
 ```bash
-python3 ~/WorkBuddy/Claw/webapp/daily_run.py
+python3 webapp/daily_run.py
 ```
 
 stdout 输出一条 JSON 摘要，并生成：
@@ -55,7 +47,7 @@ stdout 输出一条 JSON 摘要，并生成：
 ### 盘中提醒守护
 
 ```bash
-bash ~/WorkBuddy/Claw/webapp/supervisor.sh
+bash webapp/supervisor.sh
 ```
 
 每 15 秒检查并拉起 4 个常驻进程：`server.py`（HTTP）、`alertd.py`（止盈止损到价通知）、`tlbreak_alert.py`（三线穿阳 · 破 20 日高）、`win80_alert.py`（80% 胜率规则弹窗）。
@@ -63,7 +55,7 @@ bash ~/WorkBuddy/Claw/webapp/supervisor.sh
 桌面闪窗是原生 AppKit 小窗，二进制缺失时重新编译：
 
 ```bash
-cd ~/WorkBuddy/Claw/webapp
+cd webapp
 clang -fobjc-arc -framework AppKit -o flashnotify flashnotify.m
 ```
 
