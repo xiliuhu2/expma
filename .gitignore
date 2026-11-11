@@ -52,7 +52,15 @@ webapp/xq_state.json
 # ---- 每日报告 / 专题产物（可再生成）----
 daily/
 article/
+/*.html
 EXPMA双线持续上行_*.html
+
+# ---- 运行环境痕迹 / 个人运营笔记（禁止入库）----
+# 抓取状态含本机绝对路径，且每日重算
+backtest/fetch_state.json
+backtest/fetch_state.json.lock
+# 开放平台发布信息卡含个人定价、实名/收款方案
+dist/发布信息卡.md
 
 # ---- 本地工作台私有数据 ----
 .workbuddy/
