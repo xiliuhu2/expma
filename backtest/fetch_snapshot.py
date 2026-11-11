@@ -37,8 +37,9 @@ import re
 import shutil
 import subprocess
 import sys
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-BASE = os.path.expanduser('~/WorkBuddy/Claw')
+BASE = _REPO
 SNAP = os.path.join(BASE, 'backtest', 'snapshot.json')
 META = os.path.join(BASE, 'backtest', 'snapshot_meta.json')
 BAK_DIR = os.path.join(BASE, 'backtest', 'snapshot_bak')
@@ -61,16 +62,27 @@ CLOSE = (15, 5)             # 15:05 之后才允许落收盘名单
 SOURCE = 'westock-tool filter (零过滤全市场)'
 
 
+def hidden_config_dirs():
+    """用户主目录下的隐藏配置目录，逐项枚举而非用通配符（glob 默认不进隐藏目录）。"""
+    home = os.path.expanduser('~')
+    return [os.path.join(home, d) for d in sorted(os.listdir(home))
+            if d.startswith('.') and os.path.isdir(os.path.join(home, d))]
+
+
 def find_cli():
-    pats = [
-        os.path.expanduser('~/.workbuddy/plugins/cache/**/westock-tool/scripts/index.js'),
-        os.path.expanduser('~/.workbuddy/plugins/marketplaces/**/westock-tool/scripts/index.js'),
-        os.path.expanduser('~/.workbuddy/skills/**/westock-tool/scripts/index.js'),
-    ]
-    for p in pats:
-        hits = sorted(glob.glob(p, recursive=True))
-        if hits:
-            return hits[-1]
+    # 优先用环境变量显式指定；否则在用户配置目录里自动发现 CLI
+    explicit = os.environ.get('WESTOCK_JS')
+    if explicit and os.path.isfile(explicit):
+        return explicit
+    for base in hidden_config_dirs():
+        for sub in ('plugins', 'skills'):
+            root = os.path.join(base, sub)
+            if not os.path.isdir(root):
+                continue
+            hits = sorted(glob.glob(os.path.join(
+                root, '**', 'westock-tool', 'scripts', 'index.js'), recursive=True))
+            if hits:
+                return hits[-1]
     raise FileNotFoundError('未找到 westock-tool CLI（scripts/index.js）')
 
 
@@ -78,10 +90,11 @@ def find_node():
     n = shutil.which('node')
     if n:
         return n
-    hits = sorted(glob.glob(os.path.expanduser(
-        '~/.workbuddy/binaries/node/versions/*/bin/node')))
-    if hits:
-        return hits[-1]
+    for base in hidden_config_dirs():
+        hits = sorted(glob.glob(os.path.join(
+            base, 'binaries', 'node', 'versions', '*', 'bin', 'node')))
+        if hits:
+            return hits[-1]
     raise FileNotFoundError('未找到 node 可执行文件')
 
 

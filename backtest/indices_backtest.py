@@ -8,9 +8,10 @@
 门控检验：以上证「EMA12上/下」状态门控小盘股策略④信号，对比收益差
 """
 import glob, json, os, statistics
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-IDX_DIR = os.path.expanduser('~/WorkBuddy/Claw/backtest/indices')
-KB = os.path.expanduser('~/WorkBuddy/Claw/backtest/klines')
+IDX_DIR = os.path.join(_REPO, 'backtest/indices')
+KB = os.path.join(_REPO, 'backtest/klines')
 H = [1, 3, 5, 10]
 NAMES = {'sh000001': '上证指数', 'sh000688': '科创50', 'sz399006': '创业板指', 'bj899050': '北证50'}
 

@@ -2,10 +2,11 @@
 # -*- coding: utf-8 -*-
 """基线按 regime 分层（最后一块拼图）"""
 import glob, json, os, statistics
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-KB = os.path.expanduser('~/WorkBuddy/Claw/backtest/klines')
+KB = os.path.join(_REPO, 'backtest/klines')
 WIN_START = '2026-08-01'
-idx = json.load(open(os.path.expanduser('~/WorkBuddy/Claw/backtest/idx_daily.json')))['idx_daily']
+idx = json.load(open(os.path.join(_REPO, 'backtest/idx_daily.json')))['idx_daily']
 days = sorted(idx)
 reg = {}
 for i, d in enumerate(days):

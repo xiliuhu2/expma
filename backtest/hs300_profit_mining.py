@@ -23,8 +23,9 @@
 import json, os, math, sys, statistics, datetime
 from bisect import bisect_right
 from collections import defaultdict
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-BASE = os.path.expanduser('~/WorkBuddy/Claw')
+BASE = _REPO
 KL = os.path.join(BASE, 'backtest/klines')
 IDX = os.path.join(BASE, 'backtest/indices/sh000300.json')
 CONS = os.path.join(BASE, 'webapp/hs300_cons.json')

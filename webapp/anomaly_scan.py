@@ -24,8 +24,9 @@ import json
 import os
 import sys
 import time
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-WEB = os.path.expanduser('~/WorkBuddy/Claw/webapp')
+WEB = os.path.join(_REPO, 'webapp')
 sys.path.insert(0, WEB)
 import server as S  # noqa: E402
 

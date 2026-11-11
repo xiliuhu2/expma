@@ -31,8 +31,9 @@ import datetime
 import json
 import os
 import statistics
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-BASE = os.path.expanduser('~/WorkBuddy/Claw')
+BASE = _REPO
 ROOT = os.path.join(BASE, 'backtest')
 WEB = os.path.join(BASE, 'webapp')
 DAILY = os.path.join(BASE, 'daily')

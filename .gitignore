@@ -58,4 +58,4 @@ backtest/fetch_state.json.lock
 dist/发布信息卡.md
 
 # ---- 本地工作台私有数据 ----
-.workbuddy/
+.work*/

@@ -3,8 +3,9 @@
 """抓取股债长跑数据：上证指数（1996~今）+ 上证国债指数（2003~今），东财全历史日K。
 输出 backtest/bond/{sh000001,sh000012}.json，格式 [date, open, close, high, low, vol]"""
 import json, os, urllib.request
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-OUT = os.path.expanduser('~/WorkBuddy/Claw/backtest/bond')
+OUT = os.path.join(_REPO, 'backtest/bond')
 os.makedirs(OUT, exist_ok=True)
 
 def em_kline(secid, beg):

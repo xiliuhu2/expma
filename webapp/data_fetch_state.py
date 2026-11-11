@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """公共数据「当日一次性」抓取守卫（跨进程、跨定时任务）。
 
-背景：目前有两个 WorkBuddy 定时任务（15:15 / 17:15）都会执行 daily_run.py。
+背景：多个收盘定时任务（15:15 / 17:15）都会执行 daily_run.py。
 不设防的话，指数 / 债券 / 行业 / 概念 / 沪深300 / 全市场名单 / 5009 只日K /
 盘口异动会在同一天被**整批重复联网拉取两遍**。本模块用
 「日期 + 成功标记 + 文件锁」保证同一天每个 key 最多成功抓一次；
@@ -19,8 +19,9 @@ import datetime
 import fcntl
 import json
 import os
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-BASE = os.path.expanduser('~/WorkBuddy/Claw')
+BASE = _REPO
 STATE = os.path.join(BASE, 'backtest', 'fetch_state.json')
 LOCK = STATE + '.lock'
 HISTORY_MAX = 120

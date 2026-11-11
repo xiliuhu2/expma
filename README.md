@@ -80,7 +80,7 @@ clang -fobjc-arc -framework AppKit -o flashnotify flashnotify.m
 | `backtest/indices/` | 上证 / 沪深300 / 创业板 / 科创50 / 北证50 指数日线 |
 | `daily/` | 每日日报与专题报告（Markdown） |
 | `webapp/*.jsonl`、`alert_archive_bak/` | 盘中提醒的滚动档案与历史归档 |
-| `dist/*.zip` | 11-05 的 skill 封装包，**与当前代码不同步**，仅供存档参考 |
+| `dist/*.zip` | 11-05 的旧版打包存档，**与当前代码不同步** |
 
 ---
 

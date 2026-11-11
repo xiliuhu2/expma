@@ -28,6 +28,7 @@
   --selftest 合成数据跑三类分支断言，不联网
   supervisor.sh 常驻；daily_run.py 每日收盘后随其它守护一起重启。"""
 import datetime, json, os, re, subprocess, sys, time, urllib.request
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 try:
     sys.stdout.reconfigure(line_buffering=True)
@@ -36,7 +37,7 @@ except Exception:
 
 from flashwin import flash, RED
 
-WEB = os.path.expanduser('~/WorkBuddy/Claw/webapp')
+WEB = os.path.join(_REPO, 'webapp')
 DATA = os.path.join(WEB, 'win80.json')                    # 收盘跑批清单
 RECS = os.path.join(WEB, 'win80_alerts.json')              # 滚动窗口（去重）
 HIST = os.path.join(WEB, 'win80_alert_history.jsonl')       # 永久档案 append-only

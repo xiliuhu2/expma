@@ -3,14 +3,15 @@
 """并发抓取 universe 全部股票日 K（前复权），缓存为 JSON。"""
 import json, os, sys, time, urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-OUT = os.path.expanduser('~/WorkBuddy/Claw/backtest/klines')
+OUT = os.path.join(_REPO, 'backtest/klines')
 os.makedirs(OUT, exist_ok=True)
 
 # 名单基石只读正式档，本脚本只消费、绝不写回。旧版会优先读 /tmp/dk_snapshot.json
 # 并把它持久化覆盖正式档，测试残留可能静默换掉基石，已移除该后门；
 # 新档统一由 backtest/fetch_snapshot.py 收盘校验（含备份/原子替换）后写入。
-SNAP = os.path.expanduser('~/WorkBuddy/Claw/backtest/snapshot.json')
+SNAP = os.path.join(_REPO, 'backtest/snapshot.json')
 snap = json.load(open(SNAP))
 items = snap if isinstance(snap, list) else snap.get('data', {}).get('items', [])
 def _is_st(name):
@@ -90,7 +91,7 @@ manifest = {
     'stale': stale,
     'date_counts': dict(last_dates.most_common(10)),
 }
-json.dump(manifest, open(os.path.expanduser('~/WorkBuddy/Claw/backtest/klines_manifest.json'), 'w'),
+json.dump(manifest, open(os.path.join(_REPO, 'backtest/klines_manifest.json'), 'w'),
           ensure_ascii=False, indent=1)
 if stale:
     print('  stale(最后bar非基准日，视为停牌): %s' % ', '.join(stale[:20]), flush=True)

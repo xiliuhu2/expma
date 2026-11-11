@@ -2,14 +2,15 @@
 # -*- coding: utf-8 -*-
 """
 爆发前埋伏策略 · 本地回测
-数据：本地 ~/WorkBuddy/Claw/backtest/klines/*.json（全市场日K，约5000只；无市值过滤，加载即全市场）
+数据：本地 backtest/klines/*.json（全市场日K，约5000只；无市值过滤，加载即全市场）
 信号日：2026-08-01 ~ 2026-11-02（收盘数据，剔除今日盘中bar）
 评估：信号日收盘买入，持有 1/3/5/10 日的收益分布，对比 universe 全体同窗基线。
 （2026-11-03 已用全市场 5009 只重跑；旧小盘结果备份于 backtest_result_smallcap.json）
 """
 import glob, json, os, statistics, sys
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-KB = os.path.expanduser('~/WorkBuddy/Claw/backtest/klines')
+KB = os.path.join(_REPO, 'backtest/klines')
 WIN_START = '2026-08-01'
 HORIZONS = [1, 3, 5, 10]
 
@@ -161,7 +162,7 @@ def main():
               '对应次日收益:', ['%+.2f%%' % ((closes[t+1]/closes[t]-1)*100) for t in sigs if t+1 < len(closes)])
 
     json.dump({'baseline': bl, 'variants': results},
-              open(os.path.expanduser('~/WorkBuddy/Claw/backtest/backtest_result.json'), 'w'),
+              open(os.path.join(_REPO, 'backtest/backtest_result.json'), 'w'),
               ensure_ascii=False, indent=1)
     print('\nsaved backtest_result.json')
 

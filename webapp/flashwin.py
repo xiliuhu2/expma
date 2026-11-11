@@ -24,7 +24,7 @@ try:
     SLOT = int(sys.argv[6])           # 同批多窗纵向错位槽位 0-3
 except Exception:
     SLOT = 0
-LOGF = os.path.expanduser('~/WorkBuddy/Claw/webapp/tlbreak_flash.log')
+LOGF = os.environ.get('FLASH_LOG', 'tlbreak_flash.log')
 def log(why):
     try:
         open(LOGF, 'a').write('%s %s %s\n' % (
@@ -107,7 +107,9 @@ def _next_slot():
     return _SLOT[0]
 
 
-_FLASH_BIN = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'flashnotify')
+_APP_DIR = os.path.dirname(os.path.abspath(__file__))
+_FLASH_BIN = os.path.join(_APP_DIR, 'flashnotify')
+FLASH_LOG = os.path.join(_APP_DIR, 'tlbreak_flash.log')
 # 2026-11-11：用户要求「恢复到前天」——外观已按前天规格复刻（紧凑圆角小窗、红白闪烁）。
 # 旧 tkinter 引擎在本机只画得出白色空窗 + Dock 火箭，故默认仍用 AppKit；
 # 真要字面切回旧引擎：启动守护前设 FLASH_ENGINE=tk 即可，无需改代码。
@@ -130,10 +132,11 @@ def spawn_flash(title, msg, url='', color=RED, dur=None, slot=0):
                                  str(dur or DEFAULT_DUR), str(slot)],
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                 start_new_session=True)
+    env = dict(os.environ, FLASH_LOG=FLASH_LOG)
     return subprocess.Popen([sys.executable, '-c', FLASH_SRC, title, msg, url or '', color,
                              str(dur or DEFAULT_DUR), str(slot)],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                            start_new_session=True)   # 脱离父进程组，防命令结束时被连带杀掉
+                            env=env, start_new_session=True)   # 脱离父进程组，防命令结束时被连带杀掉
 
 
 def flash(title, msg, url='', color=RED, dur=None):

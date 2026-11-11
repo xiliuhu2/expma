@@ -10,8 +10,9 @@
 """
 import datetime, json, os, sys
 from urllib.request import Request, urlopen
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-WEB = os.path.expanduser('~/WorkBuddy/Claw/webapp')
+WEB = os.path.join(_REPO, 'webapp')
 PATH = os.path.join(WEB, 'hs300_cons.json')
 
 def fetch():

@@ -11,8 +11,9 @@
 数据：本地 klines/*.json（全市场约5000只，无市值过滤）。2026-11-03 已用全市场 5009 只重跑。
 """
 import glob, json, os, statistics, sys
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-KB = os.path.expanduser('~/WorkBuddy/Claw/backtest/klines')
+KB = os.path.join(_REPO, 'backtest/klines')
 WIN_START = '2026-08-01'
 HORIZONS = [1, 3, 5, 10]
 
@@ -142,7 +143,7 @@ def main():
                 if dates[t] >= WIN_START and fn(dates, opens, closes, vols, e12, e50, t)]
         print('%s → 登康信号日: %s' % (name, [(dates[t], '%+.1f%%' % fwd(closes, t, 1)) for t in sigs]))
 
-    json.dump(results, open(os.path.expanduser('~/WorkBuddy/Claw/backtest/backtest_v2_result.json'), 'w'),
+    json.dump(results, open(os.path.join(_REPO, 'backtest/backtest_v2_result.json'), 'w'),
               ensure_ascii=False, indent=1)
     print('\nsaved backtest_v2_result.json')
 

@@ -6,8 +6,9 @@ A) 策略④双穿阳线(+量比1.5+破20日高) 按 收盘价在89日均线上/
 B) 介入点对比：信号日收盘 / 次日开盘 / 回踩EMA12当日收盘 / 回踩EMA12限价成交
 """
 import glob, json, os, statistics
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-KB = os.path.expanduser('~/WorkBuddy/Claw/backtest/klines')
+KB = os.path.join(_REPO, 'backtest/klines')
 WIN_START = '2025-11-01'
 H = [1, 3, 5, 10]
 

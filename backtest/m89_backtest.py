@@ -6,7 +6,8 @@
 并按信号日全市场20日动量拆分 regime 上行/下行。
 """
 import json, os, sys, time
-sys.path.insert(0, os.path.expanduser('~/WorkBuddy/Claw/webapp'))
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(_REPO, 'webapp'))
 import server as S
 
 H = (1, 3, 5, 10)
@@ -85,7 +86,7 @@ result = {
     'variants': {name: stats_by_h(sig[name]) for name in variants},
     'regime': {rg: stats_by_h(sig_reg[rg]) for rg in ('up', 'down')},
 }
-out = os.path.expanduser('~/WorkBuddy/Claw/backtest/backtest_m89_result.json')
+out = os.path.join(_REPO, 'backtest/backtest_m89_result.json')
 json.dump(result, open(out, 'w'), ensure_ascii=False, indent=1)
 print('done. 基线 10日均值=%.3f%% 胜率=%s%%' % (baseline['avg10'], baseline['win10']), flush=True)
 for name in variants:

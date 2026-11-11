@@ -40,11 +40,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
     // 拉起 server + alertd（幂等；与 supervisor.sh 同口径）
     func ensureServices() {
+        let webDir = Bundle.main.executableURL?.deletingLastPathComponent().path
+            ?? FileManager.default.currentDirectoryPath
         let script = """
-        W="$HOME/WorkBuddy/Claw/webapp"
+        W="\(webDir)"
         PYTHON="$(command -v python3)"
-        pgrep -f "Claw/webapp/server\\.py" >/dev/null 2>&1 || nohup "$PYTHON" "$W/server.py" 8765 >>"$W/launchd.log" 2>&1 &
-        pgrep -f "Claw/webapp/alertd"    >/dev/null 2>&1 || nohup "$PYTHON" "$W/alertd.py" >>"$W/launchd.log" 2>&1 &
+        pgrep -f "$W/server\\.py" >/dev/null 2>&1 || nohup "$PYTHON" "$W/server.py" 8765 >>"$W/launchd.log" 2>&1 &
+        pgrep -f "$W/alertd"      >/dev/null 2>&1 || nohup "$PYTHON" "$W/alertd.py" >>"$W/launchd.log" 2>&1 &
         for i in 1 2 3 4 5 6 7 8; do
           curl -s -o /dev/null --max-time 1 http://127.0.0.1:8765/ && break
           sleep 1

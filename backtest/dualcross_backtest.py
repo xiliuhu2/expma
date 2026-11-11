@@ -6,8 +6,9 @@
 入场假设：信号日收盘买入（另有次日开盘口径在v3验证过更差，此处用收盘口径）。
 """
 import glob, json, os, statistics
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-KB = os.path.expanduser('~/WorkBuddy/Claw/backtest/klines')
+KB = os.path.join(_REPO, 'backtest/klines')
 WIN_START = '2025-11-01'   # 近12个月
 H = [1, 3, 5, 10]
 

@@ -6,8 +6,9 @@
 stdout 输出 JSON 摘要（供自动化/人工读取）
 """
 import datetime, json, os, subprocess, sys, time, urllib.request
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-BASE = os.path.expanduser('~/WorkBuddy/Claw')
+BASE = _REPO
 PORT = 8765
 URL = 'http://127.0.0.1:%d' % PORT
 DAILY_DIR = os.path.join(BASE, 'daily')
@@ -31,7 +32,7 @@ SKIP_FETCH = os.environ.get('SKIP_FETCH') == '1'
 if SKIP_FETCH:
     out['steps']['offline'] = 'SKIP_FETCH=1: 使用现有K线缓存，跳过抓取/重启/DQ'
 else:
-    # 公共数据「当日一次性」守卫：目前有两个 WorkBuddy 定时任务（15:15 / 17:15）
+    # 公共数据「当日一次性」守卫：多个收盘定时任务（15:15 / 17:15）
     # 都会执行本脚本。若不去重，指数/债券/行业/概念/沪深300/名单快照/5009只日K/
     # 盘口异动会在同一天被整批重复联网拉两遍。守卫只记元数据，不改任何主档，
     # 失败不记成功（下次跑批自动重试），FORCE_FETCH=1 可人工强制重抓。

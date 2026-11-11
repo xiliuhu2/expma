@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 EXPMA 策略工作台 · 本地 Web 服务（纯标准库，无依赖）
-数据：~/WorkBuddy/Claw/backtest/klines/（全市场日K，约5000只）+ snapshot.json（快照）
+数据：backtest/klines/（全市场日K，约5000只）+ snapshot.json（快照）
 用法：python3 server.py [端口]  默认 8765
 说明：/api/screen 默认 mvmax=100（小盘回测口径）；收盘跑批 daily_run.py 显式传
      mvmax=99999 以覆盖全市场。regime 等权指数恒为市值<=100亿小盘口径。
@@ -11,9 +11,10 @@ import bisect, csv, datetime, glob, io, json, os, re, statistics, time
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from urllib.request import Request, urlopen
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-ROOT = os.path.expanduser('~/WorkBuddy/Claw/backtest')
-WEB = os.path.expanduser('~/WorkBuddy/Claw/webapp')
+ROOT = os.path.join(_REPO, 'backtest')
+WEB = os.path.join(_REPO, 'webapp')
 
 # 亏损股开关（PE_TTM<=0）：True=允许入选，False=只保留 PE>0
 # 2026-11-04 按用户要求放开（此前四策略均硬性排除亏损股）。
@@ -50,8 +51,7 @@ class Data:
     def __init__(self):
         # 名单基石只读正式档。曾存在 /tmp/dk_snapshot.json 优先读取的后门，
         # 测试残留会静默替换基石，已移除；新档统一由 backtest/fetch_snapshot.py 收盘校验后写入。
-        snap = json.load(open(os.path.expanduser(
-            '~/WorkBuddy/Claw/backtest/snapshot.json')))
+        snap = json.load(open(os.path.join(_REPO, 'backtest/snapshot.json')))
         items = snap if isinstance(snap, list) else snap.get('data', {}).get('items', [])
         self.meta = {r['code']: {'name': r.get('name', ''),
                                  'mv': float(r.get('TotalMV') or 0),
@@ -78,7 +78,7 @@ class Data:
         self.__init_industry()
         # 指数监控（上证/科创50/创业板指/北证50）
         self.indices = {}
-        idir = os.path.expanduser('~/WorkBuddy/Claw/backtest/indices')
+        idir = os.path.join(_REPO, 'backtest/indices')
         _inames = {'sh000300': '沪深300', 'sh000001': '上证指数', 'sh000688': '科创50',
                    'sz399006': '创业板指', 'bj899050': '北证50'}
         for _p in glob.glob(idir + '/*.json'):
@@ -1018,7 +1018,7 @@ def bond_payload():
     """股债长跑：上证指数全历史 + 上证国债指数按锚点日缩放对齐。
     锚点=两序列首个共同交易日，该日两线等值；此后国债线按其复利增速外推。
     返回与上证日期轴对齐的 bond 数组（2003年前为 None），前端画在同一坐标系。"""
-    bdir = os.path.expanduser('~/WorkBuddy/Claw/backtest/bond')
+    bdir = os.path.join(_REPO, 'backtest/bond')
     sse = json.load(open(os.path.join(bdir, 'sh000001.json')))
     bi = json.load(open(os.path.join(bdir, 'sh000012.json')))
     bmap = {r[0]: float(r[2]) for r in bi}

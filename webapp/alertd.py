@@ -7,8 +7,9 @@
 import datetime, json, os, subprocess, time, urllib.request
 
 from flashwin import flash, RED, GREEN
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-WEB = os.path.expanduser('~/WorkBuddy/Claw/webapp')
+WEB = os.path.join(_REPO, 'webapp')
 TRADES = os.path.join(WEB, 'trades.json')
 ALERTS = os.path.join(WEB, 'alerts.json')
 SRV = 'http://127.0.0.1:8765'

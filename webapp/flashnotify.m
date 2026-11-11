@@ -89,8 +89,8 @@ int main(int argc, const char *argv[]) {
         int slot        = args.count > 6 ? [args[6] intValue] : 0;
         if (dur <= 0) dur = 12.0;
         gTitle = title;
-        gLogPath = [NSHomeDirectory() stringByAppendingPathComponent:
-                    @"WorkBuddy/Claw/webapp/tlbreak_flash.log"];
+        gLogPath = [[[[NSBundle mainBundle] executablePath] stringByDeletingLastPathComponent]
+                    stringByAppendingPathComponent:@"tlbreak_flash.log"];
 
         NSColor *hotColor = ColorFromHex(hex, [NSColor colorWithCalibratedRed:0.75 green:0.15 blue:0.15 alpha:1]);
         /* 2026-11-11 用户「字体不行，没有之前好看」：字体规格回到旧 tkinter FLASH_SRC

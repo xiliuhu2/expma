@@ -19,8 +19,9 @@
 import datetime, json, os, sys
 
 import server as S
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-WEB = os.path.expanduser('~/WorkBuddy/Claw/webapp')
+WEB = os.path.join(_REPO, 'webapp')
 LIVE_JSON = os.path.join(WEB, 'tlbreak_alerts.json')
 HIST = os.path.join(WEB, 'tlbreak_alert_history.jsonl')
 BACKFILL = os.path.join(WEB, 'tlbreak_alert_backfill.jsonl')

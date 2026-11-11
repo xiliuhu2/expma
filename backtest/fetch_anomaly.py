@@ -24,8 +24,9 @@ import os
 import sys
 import time
 import urllib.request
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-BASE = os.path.expanduser('~/WorkBuddy/Claw')
+BASE = _REPO
 OUT_DIR = os.path.join(BASE, 'webapp', 'anomaly_raw')
 PARTIAL_DIR = os.path.join(OUT_DIR, 'partial')
 CLOSE_HHMM = (15, 5)      # 15:05 之后才允许落正式档案（15:00 收盘 + 5 分钟接口落定）

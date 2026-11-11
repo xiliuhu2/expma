@@ -5,8 +5,9 @@
 概念归属变动慢，daily_run 每 5 天刷新一次即可；主线识别用概念比行业(f100)更贴近短线资金。
 噪音概念（融资融券/沪深股通/重仓类等泛化板块）进黑名单剔除。"""
 import datetime, json, os, time, urllib.request
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-BASE = os.path.expanduser('~/WorkBuddy/Claw')
+BASE = _REPO
 OUT = os.path.join(BASE, 'webapp', 'concepts.json')
 
 # 泛化/风格类概念：成员过杂，会稀释主线信号，直接剔除

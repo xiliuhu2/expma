@@ -8,6 +8,7 @@
   → 同时把同样段落合并进 daily/日报_<数据日>.md（幂等，按标记替换）
 """
 import csv, glob, json, os, sys
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 WEB = os.path.dirname(os.path.abspath(__file__))
 BASE = os.path.dirname(WEB)
@@ -29,7 +30,7 @@ def load_all():
 
 def _sh_ma20():
     """上证 > MA20 的市场环境（与 server.Data.mkt 同口径），date -> bool。"""
-    p = os.path.expanduser('~/WorkBuddy/Claw/backtest/indices/sh000001.json')
+    p = os.path.join(_REPO, 'backtest/indices/sh000001.json')
     try:
         k = json.load(open(p))
     except Exception:

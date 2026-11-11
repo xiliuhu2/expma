@@ -3,8 +3,9 @@
 """抓取东方财富行业分类（f100 字段），存 webapp/industry.json {code: 行业名}
 覆盖沪深A股 + 北交所。daily_run 每日调用一次（行业归属极少变动，也可手动重跑）。"""
 import json, os, time, urllib.request
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-BASE = os.path.expanduser('~/WorkBuddy/Claw')
+BASE = _REPO
 
 def fetch():
     out = {}

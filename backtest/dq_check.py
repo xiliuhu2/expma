@@ -22,8 +22,9 @@
 """
 import argparse, collections, glob, json, os, random, statistics, sys, time
 from urllib.request import Request, urlopen
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-BASE = os.path.expanduser('~/WorkBuddy/Claw')
+BASE = _REPO
 KL = os.path.join(BASE, 'backtest', 'klines')
 IDX = os.path.join(BASE, 'backtest', 'indices')
 SNAP = os.path.join(BASE, 'backtest', 'snapshot.json')

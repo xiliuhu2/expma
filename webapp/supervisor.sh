@@ -4,7 +4,7 @@
 # alertd.py  = 止损/止盈/移动止盈 到价通知（macOS 通知中心，盘中 9:25-15:05 每60秒）
 # tlbreak_alert.py = 三线穿阳·破20日高 盘中预触发
 # win80_alert.py   = 80%胜率规则 买卖弹窗（开盘买 / +2.5%止盈 / 20日到期）
-W="$HOME/WorkBuddy/Claw/webapp"
+W="$(cd "$(dirname "$0")" && pwd)"
 LOG="$W/launchd.log"
 PYTHON="$(command -v python3)"
 

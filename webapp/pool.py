@@ -7,8 +7,9 @@
 积累的是真实前向（out-of-sample）收益数据，用于持续验证和改进策略参数。
 """
 import json, os
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-POOL_PATH = os.path.expanduser('~/WorkBuddy/Claw/webapp/pool.json')
+POOL_PATH = os.path.join(_REPO, 'webapp/pool.json')
 MAX_HOLD = 3          # 回测结论：信号有效期1~3天
 STRATS = ('pre', 'dk', 'never', 'dc', 'm89', 'cross')
 SNAME = {'pre': '爆发前潜伏', 'dk': '登康式启动', 'never': '从未破线', 'dc': '双穿阳线',

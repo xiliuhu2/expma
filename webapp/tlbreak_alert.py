@@ -41,6 +41,7 @@ CYCLE=60s，首次发现即弹，延迟 ≤60 秒；因为每轮都查，不会�
 用法：python3 tlbreak_alert.py [--dry]   dry=只打印不弹通知（测试用）
      supervisor.sh 常驻；daily_run.py 每日收盘后随 alertd 一起重启。"""
 import datetime, json, os, subprocess, sys, time, urllib.request
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 try:
     sys.stdout.reconfigure(line_buffering=True)   # nohup 下日志实时可见
@@ -51,7 +52,7 @@ from flashwin import flash, RED, FLASH_ENGINE
 
 TOUCH_COLOR = '#b45309'   # 琥珀：曾触及但已回落，弱于红色买入信号，避免诱导追高
 
-WEB = os.path.expanduser('~/WorkBuddy/Claw/webapp')
+WEB = os.path.join(_REPO, 'webapp')
 RECS = os.path.join(WEB, 'tlbreak_alerts.json')          # 滚动窗口（去重判重用，只留最近300条）
 HIST = os.path.join(WEB, 'tlbreak_alert_history.jsonl')  # 永久档案（append-only，供回测，永不截断）
 SRV = 'http://127.0.0.1:8765'

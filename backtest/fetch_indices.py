@@ -12,8 +12,9 @@
 用法：python3 fetch_indices.py [--full]
 """
 import json, os, sys, time, urllib.request
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-OUT = os.path.expanduser('~/WorkBuddy/Claw/backtest/indices')
+OUT = os.path.join(_REPO, 'backtest/indices')
 os.makedirs(OUT, exist_ok=True)
 FULL = '--full' in sys.argv
 

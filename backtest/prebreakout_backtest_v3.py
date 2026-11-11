@@ -7,8 +7,9 @@
 3. 大阳线信号的"次日开盘入场"变体（打板者真实买点）
 """
 import glob, json, os, statistics
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-KB = os.path.expanduser('~/WorkBuddy/Claw/backtest/klines')
+KB = os.path.join(_REPO, 'backtest/klines')
 WIN_START = '2026-08-01'
 HORIZONS = [1, 3, 5, 10]
 
@@ -154,7 +155,7 @@ def main():
                     100 * sum(1 for v in vals if v > 0) / len(vals)))
 
     json.dump({'idx_daily': {d: round(idx_rets[d] * 100, 3) for d in days}},
-              open(os.path.expanduser('~/WorkBuddy/Claw/backtest/idx_daily.json'), 'w'))
+              open(os.path.join(_REPO, 'backtest/idx_daily.json'), 'w'))
     print('\nsaved idx_daily.json')
 
 if __name__ == '__main__':
