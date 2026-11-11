@@ -108,6 +108,10 @@ def _next_slot():
 
 
 _FLASH_BIN = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'flashnotify')
+# 2026-11-11：用户要求「恢复到前天」——外观已按前天规格复刻（紧凑圆角小窗、红白闪烁）。
+# 旧 tkinter 引擎在本机只画得出白色空窗 + Dock 火箭，故默认仍用 AppKit；
+# 真要字面切回旧引擎：启动守护前设 FLASH_ENGINE=tk 即可，无需改代码。
+FLASH_ENGINE = os.environ.get('FLASH_ENGINE', 'appkit').lower()
 
 
 def spawn_flash(title, msg, url='', color=RED, dur=None, slot=0):
@@ -116,7 +120,7 @@ def spawn_flash(title, msg, url='', color=RED, dur=None, slot=0):
     2026-11-11：tkinter 在本机只画得出白色空窗（内容不合成），且每个 Python.app
     子进程都会在 Dock 冒一个火箭图标。AppKit 版内容可靠显示 + Accessory 不占 Dock。
     """
-    if os.path.exists(_FLASH_BIN):
+    if FLASH_ENGINE == 'appkit' and os.path.exists(_FLASH_BIN):
         try:                                   # 提示音由父进程放，不依赖子进程音频
             subprocess.Popen(['afplay', '/System/Library/Sounds/Glass.aiff'],
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

@@ -45,9 +45,18 @@ static NSColor *ColorFromHex(NSString *hex, NSColor *fallback) {
 @property (nonatomic, strong) NSApplication *app;
 @property (nonatomic, copy) NSString *url;
 @property (nonatomic, copy) NSString *why;
+@property (nonatomic, strong) NSColor *bg;
+@property (nonatomic, strong) NSColor *edge;
 @end
 
 @implementation FlashView
+/* 圆角小闪窗：复刻 2026-11-09 之前的紧凑外观（326x177、圆角、细描边） */
+- (void)drawRect:(NSRect)dirty {
+    NSBezierPath *p = [NSBezierPath bezierPathWithRoundedRect:NSInsetRect(self.bounds, 1, 1)
+                                                     xRadius:12 yRadius:12];
+    [self.bg setFill]; [p fill];
+    [self.edge setStroke]; [p setLineWidth:1]; [p stroke];
+}
 /* 让整块窗口都接收点击（子 TextView 不抢事件） */
 - (NSView *)hitTest:(NSPoint)point { return self; }
 - (void)mouseDown:(NSEvent *)event {
@@ -88,11 +97,12 @@ int main(int argc, const char *argv[]) {
         NSFont *regular = [NSFont fontWithName:@"PingFangSC-Regular" size:10] ?: [NSFont systemFontOfSize:10];
         NSFont *small = [NSFont fontWithName:@"PingFangSC-Regular" size:9] ?: [NSFont systemFontOfSize:9];
 
-        /* 估算高度：中文按每行约 34 字，标题每行约 24 字 */
-        NSInteger titleLines = MIN(3, MAX(1, (NSInteger)ceil((double)[title length] / 24.0)));
-        NSInteger msgLines = MIN(14, MAX(1, (NSInteger)ceil((double)[msg length] / 34.0) + 1));
-        CGFloat w = 360;
-        CGFloat h = MIN(430, 26 + titleLines * 19 + msgLines * 15 + 30);
+        /* 固定紧凑尺寸（前天规格 326x177）；文本异常长时才小幅增高，绝不再出现大汇总之类的大窗 */
+        NSInteger titleLines = MIN(2, MAX(1, (NSInteger)ceil((double)[title length] / 24.0)));
+        NSInteger msgLines = MIN(7, MAX(1, (NSInteger)ceil((double)[msg length] / 34.0)));
+        CGFloat w = 326;
+        CGFloat h = MIN(210, 26 + titleLines * 19 + msgLines * 15 + 30);
+        if (h < 150) h = 150;
 
         NSRect screen = [[NSScreen mainScreen] frame];
         CGFloat top = 48 + (slot % 4) * 132;
@@ -107,7 +117,9 @@ int main(int argc, const char *argv[]) {
                                                      backing:NSBackingStoreBuffered
                                                        defer:NO];
         [win setLevel:NSFloatingWindowLevel];
-        [win setOpaque:YES];
+        [win setOpaque:NO];
+        [win setBackgroundColor:[NSColor clearColor]];
+        [win setHasShadow:YES];
         [win setHidesOnDeactivate:NO];
         [win setCanHide:NO];
         [win setCollectionBehavior:NSWindowCollectionBehaviorCanJoinAllSpaces |
@@ -126,12 +138,14 @@ int main(int argc, const char *argv[]) {
 
         __block BOOL hot = YES;
         void (^paint)(void) = ^{
-            NSColor *bg = hot ? hotColor : [NSColor whiteColor];
+            NSColor *bg = hot ? hotColor : [NSColor colorWithCalibratedRed:0.98 green:0.97 blue:0.96 alpha:1];
+            NSColor *edge = hot ? [NSColor colorWithCalibratedRed:0.55 green:0.10 blue:0.10 alpha:1]
+                                : [NSColor colorWithCalibratedWhite:0.82 alpha:1];
             NSColor *c1 = hot ? [NSColor whiteColor] : [NSColor colorWithCalibratedWhite:0.10 alpha:1];
             NSColor *c2 = hot ? [NSColor colorWithCalibratedRed:1 green:0.88 blue:0.54 alpha:1]
                               : [NSColor colorWithCalibratedWhite:0.20 alpha:1];
             NSColor *c3 = hot ? [NSColor whiteColor] : [NSColor colorWithCalibratedRed:0.11 green:0.31 blue:0.85 alpha:1];
-            [win setBackgroundColor:bg];
+            view.bg = bg; view.edge = edge; [view setNeedsDisplay:YES];
             NSMutableAttributedString *s = [[NSMutableAttributedString alloc] init];
             [s appendAttributedString:[[NSAttributedString alloc]
                 initWithString:[title stringByAppendingString:@"\n"]

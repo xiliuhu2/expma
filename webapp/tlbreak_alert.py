@@ -47,7 +47,7 @@ try:
 except Exception:
     pass
 
-from flashwin import flash, RED
+from flashwin import flash, RED, FLASH_ENGINE
 
 TOUCH_COLOR = '#b45309'   # 琥珀：曾触及但已回落，弱于红色买入信号，避免诱导追高
 
@@ -68,6 +68,10 @@ BATCH = 200         # 每批行情代码数（实测 300 也稳，200 保守）�
 # 2026-11-11：⑥穿线阳首轮全市场扫描曾一轮弹 20 个窗，闪窗只有 4 个纵向槽位，
 # 窗口互相覆盖 + 每窗阻塞 1.5s 拖慢轮询。设大数值（如 999）可恢复逐条弹。
 FLASH_MAX_PER_ROUND = int(os.environ.get('FLASH_MAX_PER_ROUND', '3'))
+# ⑥穿线阳盘中链总开关：2026-11-11 用户要求「恢复到前天」——该链昨日新增后
+# 11-11 单日产生 76 条提醒（前天 0 条 / 11-06 仅 6 条），过吵，默认停用回到前天口径。
+# 代码与线位 API 全部保留；要恢复该链：启动守护前设 CROSSLINE_ENABLED=1 即可。
+CROSSLINE_ENABLED = os.environ.get('CROSSLINE_ENABLED', '0') == '1'
 
 _kind = '🔺三线穿阳·破20日高(盘中)'
 # ⑥穿线阳 第二条链（用户 2026-11-10）：阳柱实体包住 EXPMA12/50（o<min线 且 现价>max线），
@@ -315,6 +319,12 @@ def evaluate(qs):
 
 def fetch_pool2():
     """从本地 API 拉穿线阳全市场线位（昨收基准 EMA12/50/MA89 + c89，纯本地计算）。"""
+    if not CROSSLINE_ENABLED:
+        STATE2['pool'] = set()
+        STATE2['lines'] = {}
+        STATE2['BY_BARE'] = {}
+        STATE2['pool_ts'] = time.time()
+        return []
     req = urllib.request.Request(SRV + '/api/crossline_pool',
                                  headers={'User-Agent': 'Mozilla/5.0'})
     data = json.load(urllib.request.urlopen(req, timeout=60))
@@ -371,6 +381,8 @@ def evaluate2(qs):
     结构性剔除：以涨停价代入仍无法成形 → 今日不可能命中，从轮询池剔除（越查越少）。
     一票一天一条（分链去重，与破高链互不挤占）。
     """
+    if not CROSSLINE_ENABLED:
+        return []                     # 2026-11-11 恢复前天口径：⑥穿线阳链停用
     today = datetime.date.today().isoformat()
     try:
         recs = json.load(open(RECS))
@@ -515,11 +527,12 @@ def check():
 
 def main():
     print('tlbreak_alert started: 链1=三线穿阳·破20日高（静态预选池 昨收距突破价≤%g%%，%s）；'
-          '链2=⑥穿线阳（全市场线位，盘中「现价收盘EMA估计」下阳柱实体包住双线即弹，'
-          '三线优先，不限涨幅/量比/破20日高）'
+          '链2=⑥穿线阳 %s；闪窗=%s'
           '每%ds 一轮、每批%d只；池子每%ds 从本地API刷新（不扫外部行情）'
           '(9:26-11:30, 13:00-15:02 工作日)%s'
           % (POOL_DIST, '完整池' if not POOL_TOP else 'TOP%d' % POOL_TOP,
+             '启用' if CROSSLINE_ENABLED else '停用（恢复前天口径，CROSSLINE_ENABLED=0）',
+             FLASH_ENGINE,
              CYCLE, BATCH, POOL_SECS, ' [DRY]' if DRY else ''))
     while True:
         t0 = time.time()
