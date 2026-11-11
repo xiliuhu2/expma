@@ -46,14 +46,16 @@ static NSColor *ColorFromHex(NSString *hex, NSColor *fallback) {
 @property (nonatomic, copy) NSString *url;
 @property (nonatomic, copy) NSString *why;
 @property (nonatomic, strong) NSColor *bg;
+@property (nonatomic, strong) NSColor *edge;
 @end
 
 @implementation FlashView
-/* 2026-11-11 用户要求「恢复之前的」：严格复刻旧 tkinter 闪窗外观——
-   直角纯色矩形、无圆角 / 无描边 / 无阴影，热帧主色、冷帧纯白。 */
+/* 圆角小闪窗：复刻 2026-11-09 之前的紧凑外观（326x177、圆角、细描边） */
 - (void)drawRect:(NSRect)dirty {
-    [self.bg setFill];
-    NSRectFill(self.bounds);
+    NSBezierPath *p = [NSBezierPath bezierPathWithRoundedRect:NSInsetRect(self.bounds, 1, 1)
+                                                     xRadius:12 yRadius:12];
+    [self.bg setFill]; [p fill];
+    [self.edge setStroke]; [p setLineWidth:1]; [p stroke];
 }
 /* 让整块窗口都接收点击（子 TextView 不抢事件） */
 - (NSView *)hitTest:(NSPoint)point { return self; }
@@ -95,8 +97,7 @@ int main(int argc, const char *argv[]) {
         NSFont *regular = [NSFont fontWithName:@"PingFangSC-Regular" size:10] ?: [NSFont systemFontOfSize:10];
         NSFont *small = [NSFont fontWithName:@"PingFangSC-Regular" size:9] ?: [NSFont systemFontOfSize:9];
 
-        /* 旧版规格：宽 326、高约 149（标题1行+正文2行+提示1行）；文本长时小幅增高，
-           绝不再出现 10:47 那版 430pt 大窗 / 汇总窗 */
+        /* 固定紧凑尺寸（前天规格 326x177）；文本异常长时才小幅增高，绝不再出现大汇总之类的大窗 */
         NSInteger titleLines = MIN(2, MAX(1, (NSInteger)ceil((double)[title length] / 24.0)));
         NSInteger msgLines = MIN(7, MAX(1, (NSInteger)ceil((double)[msg length] / 34.0)));
         CGFloat w = 326;
@@ -116,9 +117,9 @@ int main(int argc, const char *argv[]) {
                                                      backing:NSBackingStoreBuffered
                                                        defer:NO];
         [win setLevel:NSFloatingWindowLevel];
-        [win setOpaque:YES];
-        [win setBackgroundColor:hotColor];
-        [win setHasShadow:NO];
+        [win setOpaque:NO];
+        [win setBackgroundColor:[NSColor clearColor]];
+        [win setHasShadow:YES];
         [win setHidesOnDeactivate:NO];
         [win setCanHide:NO];
         [win setCollectionBehavior:NSWindowCollectionBehaviorCanJoinAllSpaces |
@@ -137,15 +138,14 @@ int main(int argc, const char *argv[]) {
 
         __block BOOL hot = YES;
         void (^paint)(void) = ^{
-            /* 与旧 FLASH_SRC 逐项对齐：热帧 #c02626 / 冷帧纯白；
-               标题 白|#1a1a1a、正文 #ffe08a|#333333、提示 白|#1d4ed8 */
-            NSColor *bg = hot ? hotColor : [NSColor whiteColor];
-            NSColor *c1 = hot ? [NSColor whiteColor] : [NSColor colorWithCalibratedRed:0.10 green:0.10 blue:0.10 alpha:1];
+            NSColor *bg = hot ? hotColor : [NSColor colorWithCalibratedRed:0.98 green:0.97 blue:0.96 alpha:1];
+            NSColor *edge = hot ? [NSColor colorWithCalibratedRed:0.55 green:0.10 blue:0.10 alpha:1]
+                                : [NSColor colorWithCalibratedWhite:0.82 alpha:1];
+            NSColor *c1 = hot ? [NSColor whiteColor] : [NSColor colorWithCalibratedWhite:0.10 alpha:1];
             NSColor *c2 = hot ? [NSColor colorWithCalibratedRed:1 green:0.88 blue:0.54 alpha:1]
-                              : [NSColor colorWithCalibratedRed:0.20 green:0.20 blue:0.20 alpha:1];
+                              : [NSColor colorWithCalibratedWhite:0.20 alpha:1];
             NSColor *c3 = hot ? [NSColor whiteColor] : [NSColor colorWithCalibratedRed:0.11 green:0.31 blue:0.85 alpha:1];
-            view.bg = bg; [view setNeedsDisplay:YES];
-            [view.win setBackgroundColor:bg];
+            view.bg = bg; view.edge = edge; [view setNeedsDisplay:YES];
             NSMutableAttributedString *s = [[NSMutableAttributedString alloc] init];
             [s appendAttributedString:[[NSAttributedString alloc]
                 initWithString:[title stringByAppendingString:@"\n"]
