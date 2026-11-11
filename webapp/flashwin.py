@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""共享闪屏提醒窗（供 alertd.py / tlbreak_alert.py 两个守护进程使用）。
+"""共享闪屏提醒窗（供 alertd.py / tlbreak_alert.py / win80_alert.py 使用）。
 
-独立子进程运行 tkinter：无边框置顶小窗，按信号类型的主色与白色交替闪烁 5 秒自动关闭
-（止损=绿 / 止盈与买入信号=红），点击窗体 → 关窗 + 用 Chrome 打开传入的 URL
-（无 Chrome 回退默认浏览器）。启动即崩（macOS WindowServer 偶发竞争）自动重试一次。
-每次弹出/退出原因记录 webapp/tlbreak_flash.log，便于排查「窗不见了」。"""
+主引擎：原生 AppKit 二进制 `flashnotify`（源码 flashnotify.m，编译命令见该文件头）。
+无边框置顶窗，主色/白色交替闪烁，到时自动关闭，点击窗体 → 关窗 + Chrome 打开 URL。
+每次弹出/退出原因记录 webapp/tlbreak_flash.log，便于排查「窗不见了」。
+
+2026-11-11 换引擎原因：tkinter 子进程在本机 macOS 上窗口内容不合成（只剩白色
+"tk" 空窗），且每个 Python.app 进程都会在 Dock 冒一个火箭图标。AppKit 版由系统
+绘制内容、floating 层级置顶、Accessory 策略不占 Dock/菜单栏。二进制缺失时下面的
+FLASH_SRC 仅作兜底（已知该环境下内容可能显示不全），不要用回它当主路径。"""
 import os, subprocess, sys, time
 
 FLASH_SRC = r'''
@@ -103,7 +107,25 @@ def _next_slot():
     return _SLOT[0]
 
 
+_FLASH_BIN = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'flashnotify')
+
+
 def spawn_flash(title, msg, url='', color=RED, dur=None, slot=0):
+    """优先用原生 AppKit 闪窗（flashnotify 二进制）；二进制缺失时回退 tkinter 版本。
+
+    2026-11-11：tkinter 在本机只画得出白色空窗（内容不合成），且每个 Python.app
+    子进程都会在 Dock 冒一个火箭图标。AppKit 版内容可靠显示 + Accessory 不占 Dock。
+    """
+    if os.path.exists(_FLASH_BIN):
+        try:                                   # 提示音由父进程放，不依赖子进程音频
+            subprocess.Popen(['afplay', '/System/Library/Sounds/Glass.aiff'],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+        return subprocess.Popen([_FLASH_BIN, title, msg, url or '', color,
+                                 str(dur or DEFAULT_DUR), str(slot)],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                start_new_session=True)
     return subprocess.Popen([sys.executable, '-c', FLASH_SRC, title, msg, url or '', color,
                              str(dur or DEFAULT_DUR), str(slot)],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,

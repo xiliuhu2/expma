@@ -64,6 +64,10 @@ POOL_DIST = 4.0     # 预选判据：昨收距突破价≤4%（用户 2026-11-10
                     # 已知取舍：2026-11-09 收盘破20高的5只中4只距离8.0~13.8%（含唯一A级
                     #  华纳药厂8.1%），4%池更覆盖不到；这类跳空大阳线需换判据而非放宽距离。
 BATCH = 200         # 每批行情代码数（实测 300 也稳，200 保守）；4%池735只→4个请求/轮
+# 一轮内逐条弹窗上限：超过就合并成一条汇总闪窗（明细仍逐条写档案）。
+# 2026-11-11：⑥穿线阳首轮全市场扫描曾一轮弹 20 个窗，闪窗只有 4 个纵向槽位，
+# 窗口互相覆盖 + 每窗阻塞 1.5s 拖慢轮询。设大数值（如 999）可恢复逐条弹。
+FLASH_MAX_PER_ROUND = int(os.environ.get('FLASH_MAX_PER_ROUND', '3'))
 
 _kind = '🔺三线穿阳·破20日高(盘中)'
 # ⑥穿线阳 第二条链（用户 2026-11-10）：阳柱实体包住 EXPMA12/50（o<min线 且 现价>max线），
@@ -315,6 +319,10 @@ def fetch_pool2():
                                  headers={'User-Agent': 'Mozilla/5.0'})
     data = json.load(urllib.request.urlopen(req, timeout=60))
     pool = data.get('pool') or []
+    # 字段版本守卫：server.py 改过 API 但未重启时返回旧字段（lo/hi），
+    # 会让 _engulf 抛 KeyError('e12') 并连带拖垮整轮检查——这里提前给出明确原因。
+    if pool and any(k not in pool[0] for k in ('e12', 'e50', 'm89', 'c89')):
+        raise RuntimeError('crossline_pool 字段过旧（缺 e12/e50/m89/c89）：请重启 server.py 8765 加载最新 API')
     STATE2['lines'] = {w['code']: w for w in pool}
     STATE2['BY_BARE'] = {w['code'][2:]: w for w in pool}
     # drop/fired 跨刷新保留（开盘盘中不变、当日已提醒不重复）
@@ -372,7 +380,15 @@ def evaluate2(qs):
     for i, a in enumerate(recs):
         if a.get('key'):
             by_key[a['key']] = i
-    fired = []
+    # 今日链2 每票已弹过的最高级别：只允许「2线→3线」升级再弹一次，
+    # 禁止同级重复与「3线→2线」降级重复弹（2026-11-11 中熔电气/乐凯胶片即此类）。
+    best = {}
+    for a in recs:
+        if a.get('date') == today and a.get('kind') in (_kind2, _kind3):
+            c = a.get('code')
+            lv = a.get('n_lines') or (3 if a['kind'] == _kind3 else 2)
+            best[c] = max(best.get(c, 0), lv)
+    fired, alerts = [], []
     for bare in sorted(qs):
         w = STATE2['BY_BARE'].get(bare)
         if not w:
@@ -389,8 +405,8 @@ def evaluate2(qs):
             continue
         kind = _kind3 if n_lines == 3 else _kind2
         key = '%s|%s|%s' % (today, w['code'], kind)
-        if key in by_key:
-            continue                        # 本链今日已弹过
+        if key in by_key or n_lines <= best.get(w['code'], 0):
+            continue                        # 同级/降级不重复弹；仅 2线→3线 升级才再弹一次
         grade = 'MA89上行·A级特征' if w['s89'] > 0 else 'MA89仍下行·B级特征'
         try:
             chg = (px / q['prev_close'] - 1) * 100 if q.get('prev_close') else 0
@@ -411,13 +427,32 @@ def evaluate2(qs):
                    source='live', mode='live', notified=True,
                    price=px, e12=w['e12'], e50=w['e50'], m89=w['m89'], s89=w['s89'],
                    n_lines=n_lines, kind=kind, msg=msg)
-        notify('%s · %s' % (kind, rec['name']), msg,
-               SRV + '/?jump=%s/p1' % w['code'], color=RED)
+        # 双线=观察级用琥珀，三线=强信号用红；避免 🟢 标签却闪红窗的视觉矛盾
+        alerts.append(('%s · %s' % (kind, rec['name']), msg,
+                       SRV + '/?jump=%s/p1' % w['code'],
+                       RED if n_lines == 3 else TOUCH_COLOR))
         recs.append(rec)
         by_key[key] = len(recs) - 1
+        best[w['code']] = n_lines
         STATE2['fired'].add(w['code'])
         STATE2['pool'].discard(w['code'])
         fired.append(rec)
+    if alerts:
+        if len(alerts) > FLASH_MAX_PER_ROUND:
+            # 一轮命中多只 → 合并为一条汇总闪窗，避免十几个窗口堆叠刷屏；
+            # 逐条明细仍完整写入 tlbreak_alerts.json / HIST，工作台与提醒档案可回看。
+            n3 = sum(1 for r in fired if r['n_lines'] == 3)
+            title = '🔔 ⑥穿线阳 本轮 %d 只（三线 %d / 双线 %d）' % (
+                len(fired), n3, len(fired) - n3)
+            names = '、'.join('%s[%d线]' % (r['name'], r['n_lines']) for r in fired[:8])
+            if len(fired) > 8:
+                names += ' 等 %d 只' % len(fired)
+            notify(title, names + ' —— 逐条明细见提醒档案，点此打开工作台看 %s。' % fired[0]['name'],
+                   SRV + '/?jump=%s/p1' % fired[0]['code'],
+                   color=RED if n3 else TOUCH_COLOR)
+        else:
+            for a in alerts:
+                notify(*a)
     if fired:
         json.dump(recs[-300:], open(RECS, 'w'), ensure_ascii=False, indent=1)
         upsert_history(fired)
@@ -439,18 +474,38 @@ def check():
         STATE2['fired'].clear()
         STATE2['drop'].clear()
         STATE2['pool_ts'] = 0.0
+    stamp = datetime.datetime.now().strftime('%H:%M:%S')
+    # 两链的取数与判定各自隔离：任一条链因字段版本/行情异常失败，另一条照常跑。
+    # （2026-11-11 故障：server 未重启返回旧字段 → 链2 KeyError → 整轮 check 中断，
+    #   连链1 也一起停摆 14 分钟。）
     if not STATE['W'] or time.time() - STATE['pool_ts'] >= POOL_SECS:
-        fetch_pool()
-    if not STATE2['lines'] or time.time() - STATE2['pool_ts'] >= POOL_SECS:
-        fetch_pool2()
+        try:
+            fetch_pool()
+        except Exception as e:
+            print('%s 链1 线位刷新失败（本轮跳过链1，链2 继续）：%r' % (stamp, e))
+            STATE['pool_ts'] = time.time()   # 失败后节流重试，不逐轮刷屏
+    if time.time() - STATE2['pool_ts'] >= POOL_SECS:
+        try:
+            fetch_pool2()
+        except Exception as e:
+            print('%s 链2 线位刷新失败（本轮跳过链2，链1 继续）：%r' % (stamp, e))
+            STATE2['pool_ts'] = time.time()
+            STATE2['pool'] = set()
     codes = sorted(STATE['pool'] - STATE['fired'] - STATE['drop'])
     codes2 = sorted(STATE2['pool'] - STATE2['fired'] - STATE2['drop'])
     codes_all = sorted(set(codes) | set(codes2))
     if not codes_all:
         return []
     qs = poll(codes_all)                     # 两链合并一次行情请求（去重后分链判定）
-    fired = evaluate(qs)                     # 链1：三线穿阳·破20日高（原逻辑不动）
-    fired += evaluate2(qs)                   # 链2：⑥穿线阳（双线/三线，不限涨幅）
+    fired = []
+    try:
+        fired += evaluate(qs)                # 链1：三线穿阳·破20日高（原逻辑不动）
+    except Exception as e:
+        print('%s 链1 判定异常（已隔离，不影响链2）：%r' % (stamp, e))
+    try:
+        fired += evaluate2(qs)               # 链2：⑥穿线阳（双线/三线，不限涨幅）
+    except Exception as e:
+        print('%s 链2 判定异常（已隔离，不影响链1）：%r' % (stamp, e))
     print('%s 轮询 破高池 %d + 穿线阳池 %d 只 → 命中 %d（链1 已提醒 %d/剔除 %d · 链2 已提醒 %d/剔除 %d）'
           % (datetime.datetime.now().strftime('%H:%M:%S'), len(codes), len(codes2), len(fired),
              len(STATE['fired']), len(STATE['drop']),
