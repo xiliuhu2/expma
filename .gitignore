@@ -1,0 +1,58 @@
+# ---- OS / Python ----
+.DS_Store
+__pycache__/
+*.py[cod]
+*.bak
+*.bak_*
+*.bak-*
+index.html.bak_*
+
+# ---- 运行日志 / 每日提醒档案 ----
+*.log
+*.jsonl
+.alertd_prev.json
+alerts.json
+tlbreak_alerts.json
+win80_alerts.json
+win80_alert_state.json
+
+# ---- 行情与信号数据（由 daily_run.py / fetch*.py 再生成，不入库）----
+backtest/klines/
+backtest/snapshot_bak/
+backtest/history/
+webapp/tltrack/
+webapp/divtrack/
+webapp/dragon/
+webapp/firstcross/
+webapp/xq_profile/
+webapp/anomaly_raw/
+webapp/alert_archive_bak/
+webapp/xqsim_probe/
+
+# ---- 运行时状态 JSON（每日重算）----
+webapp/concepts.json
+webapp/industry.json
+webapp/anomaly.json
+webapp/divcross.json
+webapp/dragon.json
+webapp/firstcross.json
+webapp/hs300_pool.json
+webapp/hs300_profit.json
+webapp/picks.json
+webapp/picks_history.json
+webapp/pool.json
+webapp/tlpool.json
+webapp/trades.json
+webapp/win80.json
+webapp/win80_alert_history.jsonl
+backtest/snapshot.json
+# 雪球登录会话 cookies（含凭证，禁止入库）
+webapp/xq_state.json
+
+# ---- 每日报告 / 专题产物（可再生成）----
+daily/
+article/
+EXPMA双线持续上行_*.html
+
+# ---- 本地工作台私有数据 ----
+.workbuddy/
