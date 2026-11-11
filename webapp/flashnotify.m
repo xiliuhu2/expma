@@ -93,16 +93,21 @@ int main(int argc, const char *argv[]) {
                     @"WorkBuddy/Claw/webapp/tlbreak_flash.log"];
 
         NSColor *hotColor = ColorFromHex(hex, [NSColor colorWithCalibratedRed:0.75 green:0.15 blue:0.15 alpha:1]);
+        /* 2026-11-11 用户「字体不行，没有之前好看」：字体规格回到旧 tkinter FLASH_SRC
+           ('PingFang SC',13,'bold') / 10 / 9；标题用描边补足 Bold 字重（PingFang SC 无 Bold 字面，
+           旧 Tk 的 bold 是合成加粗），三段之间按旧版三个 Label 的 pady 留白。 */
         NSFont *bold = [NSFont fontWithName:@"PingFangSC-Semibold" size:13] ?: [NSFont boldSystemFontOfSize:13];
         NSFont *regular = [NSFont fontWithName:@"PingFangSC-Regular" size:10] ?: [NSFont systemFontOfSize:10];
         NSFont *small = [NSFont fontWithName:@"PingFangSC-Regular" size:9] ?: [NSFont systemFontOfSize:9];
+        CGFloat lhTitle = 19, lhMsg = 15, lhHint = 13;
+        CGFloat gapTitle = 6, gapMsg = 5;          // 旧版 pady=(8,2) / (4,8) 的段间距
 
-        /* 固定紧凑尺寸（前天规格 326x177）；文本异常长时才小幅增高，绝不再出现大汇总之类的大窗 */
+        /* 高度按实际文字量收紧 + 上下均匀留白（旧版 150 下限会让短文案下半截空一大片红） */
         NSInteger titleLines = MIN(2, MAX(1, (NSInteger)ceil((double)[title length] / 24.0)));
         NSInteger msgLines = MIN(7, MAX(1, (NSInteger)ceil((double)[msg length] / 34.0)));
+        CGFloat contentH = titleLines * lhTitle + gapTitle + msgLines * lhMsg + gapMsg + lhHint;
         CGFloat w = 326;
-        CGFloat h = MIN(210, 26 + titleLines * 19 + msgLines * 15 + 30);
-        if (h < 150) h = 150;
+        CGFloat h = MIN(240, MAX(112, contentH + 28));
 
         NSRect screen = [[NSScreen mainScreen] frame];
         CGFloat top = 48 + (slot % 4) * 132;
@@ -130,7 +135,7 @@ int main(int argc, const char *argv[]) {
         view.win = win; view.app = app; view.url = url;
         [win setContentView:view];
 
-        NSTextView *tv = [[NSTextView alloc] initWithFrame:NSMakeRect(14, 14, w - 28, h - 28)];
+        NSTextView *tv = [[NSTextView alloc] initWithFrame:NSMakeRect(14, (h - contentH) / 2, w - 28, contentH)];
         [tv setEditable:NO]; [tv setSelectable:NO]; [tv setDrawsBackground:NO];
         [[tv textContainer] setLineFragmentPadding:0];
         [tv setTextContainerInset:NSMakeSize(0, 0)];
@@ -146,16 +151,30 @@ int main(int argc, const char *argv[]) {
                               : [NSColor colorWithCalibratedWhite:0.20 alpha:1];
             NSColor *c3 = hot ? [NSColor whiteColor] : [NSColor colorWithCalibratedRed:0.11 green:0.31 blue:0.85 alpha:1];
             view.bg = bg; view.edge = edge; [view setNeedsDisplay:YES];
+            /* 三段各自的行高与段后间距，复刻旧版三个独立 Label 的疏密；
+               NSStrokeWidth 负值 = 同色描边，补足旧 Tk 'bold' 的合成加粗。 */
+            NSMutableParagraphStyle *psT = [[NSMutableParagraphStyle alloc] init];
+            [psT setMinimumLineHeight:lhTitle]; [psT setMaximumLineHeight:lhTitle];
+            [psT setParagraphSpacing:gapTitle];
+            NSMutableParagraphStyle *psM = [[NSMutableParagraphStyle alloc] init];
+            [psM setMinimumLineHeight:lhMsg]; [psM setMaximumLineHeight:lhMsg];
+            [psM setParagraphSpacing:gapMsg];
+            NSMutableParagraphStyle *psH = [[NSMutableParagraphStyle alloc] init];
+            [psH setMinimumLineHeight:lhHint]; [psH setMaximumLineHeight:lhHint];
             NSMutableAttributedString *s = [[NSMutableAttributedString alloc] init];
             [s appendAttributedString:[[NSAttributedString alloc]
                 initWithString:[title stringByAppendingString:@"\n"]
-                    attributes:@{NSFontAttributeName: bold, NSForegroundColorAttributeName: c1}]];
+                    attributes:@{NSFontAttributeName: bold, NSForegroundColorAttributeName: c1,
+                                 NSStrokeWidthAttributeName: @(-2.5), NSStrokeColorAttributeName: c1,
+                                 NSParagraphStyleAttributeName: psT}]];
             [s appendAttributedString:[[NSAttributedString alloc]
                 initWithString:[msg stringByAppendingString:@"\n"]
-                    attributes:@{NSFontAttributeName: regular, NSForegroundColorAttributeName: c2}]];
+                    attributes:@{NSFontAttributeName: regular, NSForegroundColorAttributeName: c2,
+                                 NSParagraphStyleAttributeName: psM}]];
             [s appendAttributedString:[[NSAttributedString alloc]
                 initWithString:@"👉 点击在 Chrome 查看"
-                    attributes:@{NSFontAttributeName: small, NSForegroundColorAttributeName: c3}]];
+                    attributes:@{NSFontAttributeName: small, NSForegroundColorAttributeName: c3,
+                                 NSParagraphStyleAttributeName: psH}]];
             [[tv textStorage] setAttributedString:s];
         };
         paint();
