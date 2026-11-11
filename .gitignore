@@ -59,7 +59,7 @@ EXPMA双线持续上行_*.html
 # 抓取状态含本机绝对路径，且每日重算
 backtest/fetch_state.json
 backtest/fetch_state.json.lock
-# 开放平台发布信息卡含个人定价、实名/收款方案
+# 本地运营笔记
 dist/发布信息卡.md
 
 # ---- 本地工作台私有数据 ----
