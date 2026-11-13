@@ -826,6 +826,31 @@ def hs300_view():
 
 # ---------- 交易计划（真实持仓 / 止盈止损纪律） ----------
 TRADES_PATH = os.path.join(WEB, 'trades.json')
+RISK_PATH = os.path.join(WEB, 'risk_rules.json')
+
+_RISK_DEFAULTS = {'max_principal_per_stock': 200000, 'max_loss_per_stock': 10000}
+
+def _load_risk_rules():
+    """风控红线（单一事实源 webapp/risk_rules.json）：单股本金上限 / 单股亏损止损线"""
+    r = dict(_RISK_DEFAULTS)
+    if os.path.exists(RISK_PATH):
+        try:
+            r.update({k: v for k, v in json.load(open(RISK_PATH)).items()
+                      if k in _RISK_DEFAULTS and v})
+        except Exception:
+            pass
+    return r
+
+def _stock_principal(t, code):
+    """同一代码当前持仓占用本金合计（buy_price*qty）"""
+    return sum(p.get('buy_price', 0) * p.get('qty', 0)
+               for p in t['positions'] if p['code'] == code)
+
+def _loss_stop_price(buy_price, qty, max_loss):
+    """亏损红线下限价：买入价 - 最大亏损额/数量（到价必须触发止损）"""
+    if not qty:
+        return None
+    return round(buy_price - max_loss / qty, 2)
 
 def _load_trades():
     if os.path.exists(TRADES_PATH):
@@ -841,6 +866,7 @@ def _save_trades(t):
 def trades_view():
     """持仓实时视图：现价/浮动盈亏/持有交易日/止损止盈线/状态判定（纪律执行看板）"""
     t = _load_trades()
+    _rk = _load_risk_rules()
     dd = D.idx_days[-1] if D.idx_days else None
     out_pos = []
     for p in t['positions']:
@@ -894,6 +920,9 @@ def trades_view():
         out_pos.append(dict(p, price=price, days=days, pnl=round(pnl, 2),
                             pnl_amt=round((price - p['buy_price']) * p['qty'], 0),
                             stop=stop, t1=t1, t2=t2, trail_stop=trail_stop,
+                            principal=round(p['buy_price'] * p['qty'], 0),
+                            loss_limit_px=_loss_stop_price(p['buy_price'], p['qty'],
+                                                           _rk['max_loss_per_stock']),
                             e12=round(kk['e12'][ti], 2), e50=round(kk['e50'][ti], 2),
                             below50=b50, status=status,
                             hi=hi, last_date=kk['dates'][ti]))
@@ -928,8 +957,21 @@ def trades_view():
     stats_phase.sort(key=lambda x: phase_order.get(x['phase'], 8))
     emo = emotion_now()
     wins = [c for c in cl if c['ret'] > 0]
+    # 风控红线：规则 + 存量持仓合规检查（本金超上限 / 止损价低于亏损红线）
+    risk_violations = []
+    for p in out_pos:
+        if p.get('principal', 0) > _rk['max_principal_per_stock'] + 1e-6:
+            risk_violations.append('%s 本金 ¥%s 超单股上限' % (
+                p['code'], f"{p['principal']:,.0f}"))
+        llp = p.get('loss_limit_px')
+        if llp and (p.get('stop') or 0) < llp:
+            risk_violations.append('%s 止损价 %s 低于亏损红线价 %s' % (
+                p['code'], p.get('stop'), llp))
     return dict(date=dd, regime=D.regime.get(dd, 'down'), cash=t['cash'],
                 emotion={'phase': emo['phase'], 'temp': emo['temp']} if emo else None,
+                risk=dict(max_principal_per_stock=_rk['max_principal_per_stock'],
+                          max_loss_per_stock=_rk['max_loss_per_stock'],
+                          violations=risk_violations),
                 positions=out_pos, closed=cl,
                 stats=dict(n_closed=len(cl),
                            win=round(len(wins) / len(cl) * 100, 1) if cl else None,
@@ -953,13 +995,28 @@ def trade_op(q):
         qty = int(float(q.get('qty', ['0'])[0]))
         if price <= 0 or qty <= 0:
             return {'error': '价格/数量无效'}
+        # 风控红线①：单股本金上限（同票多笔合计）
+        _rk = _load_risk_rules()
+        _cap = _rk['max_principal_per_stock']
+        _old = _stock_principal(t, code)
+        _new = price * qty
+        if _old + _new > _cap + 1e-6:
+            return {'error': '风控红线：单股本金上限 ¥%s（已持有 ¥%s + 本笔 ¥%s 超限），不予录入'
+                    % (f'{_cap:,}', f'{_old:,.0f}', f'{_new:,.0f}')}
         nid = max([0] + [p['id'] for p in t['positions']] + [c['id'] for c in t['closed']]) + 1
         g = lambda k, d=None: float(q[k][0]) if q.get(k, [None])[0] not in (None, '') else d
+        # 风控红线②：止损价不得低于「亏损 ¥max_loss」对应价位（用户未填止损时直接取红线价）
+        _loss_px = _loss_stop_price(price, qty, _rk['max_loss_per_stock'])
+        _stop_in = g('stop')
+        stop = max(_stop_in, _loss_px) if (_stop_in and _loss_px) else (_loss_px or _stop_in)
         rec = dict(id=nid, code=code, name=D.meta.get(code, {}).get('name', ''),
                    buy_date=q.get('date', [D.today])[0], buy_price=price, qty=qty,
-                   stop=g('stop'), t1=g('t1'), t2=g('t2'),
+                   stop=stop, t1=g('t1'), t2=g('t2'),
                    trail=g('trail', 5), tag=q.get('tag', ['手动'])[0],
                    note=q.get('note', [''])[0], hi=None)
+        if _stop_in and _loss_px and _stop_in < _loss_px:
+            rec['note'] = ((rec['note'] + '；') if rec['note'] else '') + \
+                '止损价已按红线抬高至 %s（单股亏损上限 ¥%s）' % (stop, _rk['max_loss_per_stock'])
         t['positions'].append(rec)
         _save_trades(t)
         return {'ok': True, 'id': nid}
@@ -1003,7 +1060,14 @@ def trade_op(q):
         pos = next((p for p in t['positions'] if p['id'] == pid), None)
         if not pos:
             return {'error': '不存在'}
-        pos['stop'] = float(q.get('v', ['0'])[0])
+        # 风控红线②同样约束手动改止损：不得低于单股亏损上限对应价位
+        _rk = _load_risk_rules()
+        _loss_px = _loss_stop_price(pos['buy_price'], pos['qty'], _rk['max_loss_per_stock'])
+        v = float(q.get('v', ['0'])[0])
+        if _loss_px and v < _loss_px:
+            return {'error': '风控红线：止损价不得低于 %s（单股亏损上限 ¥%s）'
+                    % (_loss_px, _rk['max_loss_per_stock'])}
+        pos['stop'] = v
         _save_trades(t)
         return {'ok': True}
     if op == 'del':
@@ -1998,6 +2062,8 @@ class H(BaseHTTPRequestHandler):
             self._json(zt_pool(days))
         elif u.path == '/api/trades':
             self._json(trades_view())
+        elif u.path == '/api/risk_rules':
+            self._json(_load_risk_rules())
         elif u.path == '/api/trade':
             self._json(trade_op(q))
         elif u.path == '/api/quote':
@@ -2013,6 +2079,21 @@ class H(BaseHTTPRequestHandler):
             # 沪深300 · EXPMA12 首次上穿 EXPMA50（转势首叉）：收盘跑批产物，前端自行按冷静期/持有期重算
             self._json(_tl_json(os.path.join(WEB, 'firstcross.json'),
                                 {'error': 'webapp/firstcross.json missing：请先跑 daily_run.py'}))
+        elif u.path == '/api/lizhuang':
+            # 立桩量：公开公式复现 + 三关前向验证，描述性研究产物，不接交易链路
+            self._json(_tl_json(os.path.join(WEB, 'lizhuang.json'),
+                                {'error': 'webapp/lizhuang.json missing：请先跑 daily_run.py'}))
+        elif u.path == '/api/lizhuang_signals.csv':
+            p = os.path.join(WEB, 'lizhuang', 'signals.csv')
+            if os.path.exists(p):
+                data = open(p, 'rb').read()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/csv; charset=utf-8')
+                self.send_header('Content-Length', str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+            else:
+                self._json({'error': 'signals.csv missing'})
         elif u.path == '/api/emotion':
             q = parse_qs(u.query)
             ndays = int(float(q.get('days', ['30'])[0]))

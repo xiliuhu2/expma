@@ -382,6 +382,27 @@ try:
     del _fcd, _fcs
 except Exception as e:
     out['firstcross'] = {'error': str(e)}
+
+# 3.96) 立桩量：公开公式复现 + 三关前向验证（描述性研究，不接交易链路）
+#       产出 webapp/lizhuang.json（p15 数据源）+ lizhuang/signals.csv + 专题报告
+try:
+    sys.path.insert(0, BASE + '/webapp')
+    import lizhuang as _lz
+    _lzd = _lz.build()
+    _lzr = _lz.write_report(_lzd)
+    _lz5 = _lzd['summary']['by_h'].get('5', {})
+    out['lizhuang'] = {
+        'date': _lzd['as_of'], 'n_signals': _lzd['n_signals'],
+        'd5_excess': _lz5.get('excess'), 'd5_win': _lz5.get('win'),
+        'sens_all_negative': _lzd['sens_all_negative'],
+        'unconfirmed_excess': _lzd['unconfirmed_excess'],
+        'report': _lzr,
+    }
+    out['lizhuang_report'] = _lzr
+    del _lzd, _lz5
+except Exception as e:
+    out['lizhuang'] = {'error': str(e)}
+
 try:
     del D2
 except NameError:
@@ -397,9 +418,17 @@ out['non_trading_day'] = bool(out['date'] != _today)
 # 4) 生成日报 markdown
 if out['date']:
     ds = out['date']
+    try:
+        _rkf = json.load(open(BASE + '/webapp/risk_rules.json'))
+        _rk_line = '- 风控纪律（%s 起）：单股本金 ≤¥%s；单股浮亏 ≥¥%s 无条件止损（系统在建仓与改止损时强制校验）' % (
+            _rkf.get('effective', ''), f"{_rkf.get('max_principal_per_stock', 200000):,}",
+            f"{_rkf.get('max_loss_per_stock', 10000):,}")
+    except Exception:
+        _rk_line = '- 风控纪律：单股本金 ≤¥200,000；单股浮亏 ≥¥10,000 无条件止损（系统强制校验）'
     lines = ['# EXPMA 每日收盘报告 · %s' % ds, '',
              '- Regime：**%s**（等权小盘指数 20 日动量 %+.2f%%）' % (
                  '上行 ▲（可开仓）' if cur == 'up' else '下行 ▼（按回测规则应空仓观察）', regime['mom20']),
+             _rk_line,
              '- 指数可操作窗口：' + '；'.join(
                  '%s %s（%+.2f%%）' % (d['name'], 'EMA12上方 ▲可操作' if d['above12'] else 'EMA12下方 ▼回避', d['chg'])
                  for d in out.get('indices', [])),
@@ -685,7 +714,7 @@ if out['date']:
                          else '❌ 不介入（提醒照发，仅观察）'),
                         (w80.get('idx_gate') or {}).get('why', '指数数据缺失')))
         _gate_w80 = w80.get('idx_gate') or {}
-        lines.append('- 提醒纪律：确认日次日 9:15-9:32 **弹窗必发**——指数配合弹红色「开盘买入」、'
+        lines.append('- 提醒纪律：确认日次日 9:30-9:32 **弹窗必发**——指数配合弹红色「开盘买入」、'
                      '指数不配合弹琥珀「仅观察」（回测：弱市/缩量/跳空日介入胜率 53~75%）。')
         lines.append('- 口径与回测详见 daily/三线穿阳_80胜率规则_2026-11-06.md 与 '
                      'daily/三线穿阳_介入时机指数条件回测_2026-11-07.md；'
@@ -707,6 +736,22 @@ if out['date']:
                      '**结论仅标描述/候选**，不构成操作建议。详见 daily/转势首叉_%s.md 与工作台「🌱 转势首叉」页签。' % _fc['date'])
     except Exception as _e:
         lines.append('- 转势首叉日报段生成失败：%s' % _e)
+    # ⑬ 立桩量：公开公式复现的三关验证摘要（描述/候选，不接交易链路）
+    try:
+        _lz = out.get('lizhuang') or {}
+        if _lz.get('error'):
+            raise RuntimeError(_lz['error'])
+        lines.append('## ⑬ 立桩量（公开公式复现 · 描述性研究）')
+        lines.append('- 全历史立桩量柱 + 三天法则确认 **%d** 个信号；'
+                     '次日开盘接力 5 日超额 **%+.2fpp**、胜率 %.1f%%。'
+                     % (_lz['n_signals'], _lz['d5_excess'], _lz['d5_win']))
+        lines.append('- 分年份与 %d 组参数变体%s；三日未确认组 %+.2fpp。'
+                     '③ 分年份稳健性未过（两年均负、样本期短），'
+                     '**结论仅标描述/候选**，不写成操作建议。详见 daily/立桩量_%s.md 与工作台「立桩量」页签。'
+                     % (7, '全部为负' if _lz['sens_all_negative'] else '方向不一致',
+                        _lz['unconfirmed_excess'], _lz['date']))
+    except Exception as _e:
+        lines.append('- 立桩量日报段生成失败：%s' % _e)
     lines.append('')
     lines.append('> 结果为客观数据筛选，不构成投资建议。工作台：http://127.0.0.1:%d' % PORT)
     rep = os.path.join(DAILY_DIR, '日报_%s.md' % ds)
