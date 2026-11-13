@@ -118,6 +118,14 @@ body.idxResizing,body.idxResizing *{user-select:none!important;cursor:inherit!im
 #lzGrip:hover{color:var(--accent)}
 #lzChartWrap.lzZoom{outline:2px solid rgba(47,111,237,.55);outline-offset:-2px}
 .lzCase{font-size:12px;line-height:1.9;margin-top:8px}
+/* p16 双线裹实体 · 全历史回测与持续跟踪 */
+#bwChartWrap{position:relative;height:360px;margin-top:6px;touch-action:none;cursor:crosshair;user-select:none;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+#bwChart{position:absolute;inset:0;width:100%;height:100%}
+#bwTip{position:absolute;pointer-events:none;display:none;background:rgba(255,255,255,.97);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.7;box-shadow:0 3px 12px rgba(0,0,0,.12);z-index:6;white-space:nowrap}
+#bwGrip{position:absolute;right:0;bottom:0;width:24px;height:14px;cursor:ns-resize;color:#9ca3af;display:flex;align-items:flex-end;justify-content:flex-end;font-size:11px;user-select:none}
+#bwGrip:hover{color:var(--accent)}
+#bwChartWrap.bwZoom{outline:2px solid rgba(47,111,237,.55);outline-offset:-2px}
+.bwCase{font-size:12px;line-height:1.9;margin-top:8px}
 </style>
 </head>
 <body>
@@ -152,6 +160,7 @@ body.idxResizing,body.idxResizing *{user-select:none!important;cursor:inherit!im
   <button data-p="p13" style="color:#15803d;font-weight:700">🎯 80%胜率</button>
   <button data-p="p14" style="color:#0f766e;font-weight:700">🌱 转势首叉</button>
   <button data-p="p15" style="color:#a16207;font-weight:700">📐 立桩量</button>
+  <button data-p="p16" style="color:#1d4ed8;font-weight:700">🔵 双线裹实体</button>
 </div>
 </div>
 
@@ -1029,6 +1038,61 @@ body.idxResizing,body.idxResizing *{user-select:none!important;cursor:inherit!im
   </div>
 </div>
 
+<div class="pane" id="p16">
+  <div class="card">
+    <h3 style="font-size:15px;margin-bottom:6px">🔵 双线裹实体 · 3 日内 ≥2 天实体包住 EXPMA12/50
+      <span class="fcGate warn">描述/候选</span>
+      <span class="muted" id="bwAsOf" style="font-weight:400;margin-left:8px"></span>
+    </h3>
+    <div class="muted" style="line-height:1.8;margin-bottom:4px">
+      <b>信号</b>：实体 <code>[min(开,收), max(开,收)]</code> 同时包住 EXPMA12 与 EXPMA50；最近 3 个交易日 ≥2 天入选（B 级），3 天全中（A 级）。阴阳不限。
+      <b>纪律</b>：t 日收盘确认 → <b>t+1 开盘成交</b>；不报裸收益，超额对比「同成交日全市场等权」与「同期任意日」两条基线。
+      <b>边界</b>：本地日K仅覆盖两个年份段、信号集中近期，<b>三关之③未过，全部结论仅标描述/候选</b>；A 级并不等于更优，勿据此下单。
+    </div>
+    <div class="fcCtl">
+      <label>持有期 <select id="bwHold"></select></label>
+      <button class="fcIcon" title="铺满图表高度" onclick="bwFullHeight()">⛶</button>
+      <button class="fcIcon" title="一键复位视窗与尺寸" onclick="bwResetAll()">↙</button>
+      <button class="fcIcon" title="导出全历史信号 CSV（含选入日与10日涨幅）" onclick="bwExport()">⇩</button>
+    </div>
+    <div class="fcKpis" id="bwKpis"></div>
+  </div>
+
+  <div class="card">
+    <h3 style="font-size:14px;margin-bottom:6px">选入与跟踪 <span id="bwRecentN" class="muted"></span></h3>
+    <div style="max-height:320px;overflow:auto;margin-bottom:8px">
+      <table id="bwSigT" class="fcTbl"><thead><tr>
+        <th class="l">选入日</th><th class="l">代码</th><th class="l">名称</th><th class="l">行业</th>
+        <th>级别</th><th>命中</th><th>实体裹线形态</th><th>收盘</th>
+        <th>成交日</th><th>成交价</th><th>前向%</th><th>基线%</th><th>超额%</th><th>状态</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+    <div class="bwCase" id="bwCase"></div>
+  </div>
+
+  <div class="card">
+    <h3 style="font-size:14px;margin-bottom:6px">图形化检验（三关口径）</h3>
+    <div class="fcTabs" id="bwTabs">
+      <button class="bsTab on" data-t="dist">超额分布</button>
+      <button class="bsTab" data-t="align">事件对齐</button>
+      <button class="bsTab" data-t="timeline">历史时间轴</button>
+      <button class="bsTab" data-t="bins">赔率分箱</button>
+      <button class="bsTab" data-t="sens">分年份 / 敏感性</button>
+    </div>
+    <div id="bwChartWrap">
+      <canvas id="bwChart"></canvas>
+      <div id="bwTip"></div>
+      <div id="bwGrip" title="拖动调图表高度 · 双击复位" ondblclick="event.stopPropagation();bwResetHeight()">▨</div>
+    </div>
+    <div class="legend" id="bwLegend"></div>
+  </div>
+
+  <div class="card">
+    <h3 style="font-size:14px;margin-bottom:6px">三关纪律 · 数值口径</h3>
+    <div id="bwStats" style="font-size:12px;line-height:1.9"></div>
+  </div>
+</div>
+
 <!-- 指数大图弹窗 -->
 <div id="idxModal" style="display:none;position:fixed;inset:0;background:rgba(15,18,24,.55);z-index:99;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeIdxModal()">
   <div id="idxModalBox" style="position:relative;background:var(--card);border-radius:14px;max-width:96vw;width:960px;height:82vh;display:flex;flex-direction:column;overflow:hidden;padding:18px 20px 10px;box-shadow:0 12px 40px rgba(0,0,0,.25)">
@@ -1568,12 +1632,13 @@ function setTab(id){
   if(id==='p13')loadWin80();
   if(id==='p14')loadFC();
   if(id==='p15')loadLZ();
+  if(id==='p16')loadBW();
   if(id==='p6')loadTrades();
   klBackShow();
 }
 /* ---------- K线跳转来源记忆：任意模块点行 → K线，一键「← 返回」回原模块（不依赖浏览器历史） ---------- */
 let klFromTab=null;
-const TABN={p2:'策略筛选',p3:'Regime & 回测',p4:'观察池',p5:'涨停复盘',p6:'交易计划',p7:'沪深300',p8:'三线池',p9:'龙头战法',p10:'背离金叉',p11:'提醒记录',p12:'异动前瞻',p13:'80%胜率',p14:'转势首叉',p15:'立桩量'};
+const TABN={p2:'策略筛选',p3:'Regime & 回测',p4:'观察池',p5:'涨停复盘',p6:'交易计划',p7:'沪深300',p8:'三线池',p9:'龙头战法',p10:'背离金叉',p11:'提醒记录',p12:'异动前瞻',p13:'80%胜率',p14:'转势首叉',p15:'立桩量',p16:'双线裹实体'};
 function jumpKline(code){
   if(currentTab&&currentTab!=='p1')klFromTab=currentTab;
   setTab('p1');loadKline(code);klBackShow();
@@ -5194,6 +5259,381 @@ function lzBind(){
   });
   addEventListener('resize',()=>{if(currentTab==='p15'&&LZPTS.length)lzDraw()});
 }
+/* ==================== p16 双线裹实体 · 全历史回测与持续跟踪 ==================== */
+const BWKEY='bwStateV1';
+const BWDEF={hold:10,tab:'dist',height:360};
+let BWD=null,BWS=Object.assign({},BWDEF),BWBOUND=false;
+let BWPTS=[],BWKIND='bar',BWAXIS=null,BWVIEW={start:0,count:1};
+let BWGEO=null,BWHOVER=null,BWDRAG=null,BWSEL=null,BWRAF=0,BWLASTDN=null,BWPEND=null;
+const bwEl=id=>document.getElementById(id);
+const bwN=(v,d=2)=>v==null?'—':(v>0?'+':'')+v.toFixed(d);
+function bwSave(){try{localStorage.setItem(BWKEY,JSON.stringify(BWS))}catch(e){}}
+function bwLoadState(){try{BWS=Object.assign({},BWDEF,JSON.parse(localStorage.getItem(BWKEY)||'{}'))}catch(e){BWS=Object.assign({},BWDEF)}}
+function bwKpi(label,val,cls){return '<div class="fcKpi"><b class="'+(cls||'')+'">'+val+'</b><span>'+label+'</span></div>'}
+function loadBW(){
+  bwLoadState();
+  fetch('/api/bodywrap').then(r=>r.json()).then(d=>{
+    if(d.error){bwEl('bwKpis').innerHTML='<div class="muted">'+d.error+'</div>';return}
+    BWD=d;
+    if(!BWBOUND){bwInitUI();bwBind();BWBOUND=true}
+    bwBuild();
+  }).catch(e=>{bwEl('bwKpis').innerHTML='<div class="muted">数据加载失败：'+e+'</div>'});
+}
+function bwInitUI(){
+  bwEl('bwHold').innerHTML=(BWD.definition.horizons||[1,3,5,10,20]).map(h=>'<option value="'+h+'">'+h+' 日</option>').join('');
+  bwEl('bwAsOf').textContent='基准日 '+BWD.as_of+' · '+BWD.n_stocks+' 只 · '+BWD.n_days+' 根K线 · '+BWD.n_signals+' 个信号';
+  bwEl('bwChartWrap').style.height=BWS.height+'px';
+  bwEl('bwChartWrap').tabIndex=0;
+  bwApplyUI();
+}
+function bwApplyUI(){
+  bwEl('bwHold').value=String(BWS.hold);
+  document.querySelectorAll('#bwTabs .bsTab').forEach(b=>b.classList.toggle('on',b.dataset.t===BWS.tab));
+}
+function bwResetAll(){
+  BWS=Object.assign({},BWDEF);bwSave();
+  bwEl('bwChartWrap').style.height=BWDEF.height+'px';
+  if(BWD){bwApplyUI();bwBuild()}
+}
+function bwFullHeight(){
+  const h=Math.max(420,Math.round(innerHeight*.76));
+  bwEl('bwChartWrap').style.height=h+'px';BWS.height=h;bwSave();bwDraw();
+}
+function bwResetHeight(){bwEl('bwChartWrap').style.height=BWDEF.height+'px';BWS.height=BWDEF.height;bwSave();bwDraw()}
+function bwExport(){
+  if(!BWD)return;
+  const a=document.createElement('a');
+  a.href='/api/bodywrap_signals.csv';a.download='双线裹实体_signals_'+BWD.as_of+'.csv';a.click();
+}
+function bwBuild(){
+  const h=String(BWS.hold),s=BWD.summary.by_h[h]||{};
+  const a=BWD.by_grade.A[h]||{},bb=BWD.by_grade.B[h]||{};
+  bwEl('bwKpis').innerHTML=
+    bwKpi('全历史信号',BWD.n_signals)+
+    bwKpi('当日入选 A/B',BWD.today.n_A+' / '+BWD.today.n_B)+
+    bwKpi('10日跟踪 成熟/跟踪中',BWD.tracking.matured+' / '+BWD.tracking.tracking)+
+    bwKpi(h+'日前向均值',bwN(s.mean)+'%',s.mean>0?'up':'down')+
+    bwKpi('同日全市场基线',bwN(s.base_same)+'%')+
+    bwKpi(h+'日超额',bwN(s.excess)+'pp',s.excess>0?'up':'down')+
+    bwKpi('超额胜率',s.win==null?'—':s.win.toFixed(1)+'%')+
+    bwKpi('A级超额 / B级超额',bwN(a.excess)+' / '+bwN(bb.excess)+'pp',((a.excess||0)>0?'up':'down'))+
+    bwKpi('仅1天命中对照',bwN(BWD.unconfirmed_excess)+'pp','down');
+  bwEl('bwRecentN').textContent='（最近 '+BWD.recent.length+' 条 · 按选入日倒序 · 10日涨幅每日跑批补齐）';
+  bwRenderTable();bwRenderCase();bwRenderStats();bwSetData();bwDraw();
+}
+function bwRenderTable(){
+  const h=String(BWS.hold);
+  const mk=r=>({...r,_v:[r.sel_date,r.code,r.name,r.ind,r.grade,r.hits,r.pattern,r.close,
+    r.entry_date,r.entry_px,r.ret[h],r.base[h],r.excess[h],r.status]});
+  const fn=r=>`<tr onclick="jumpKline('${r.code}')">
+    <td class="l"><a href="javascript:void(0)" onclick="event.stopPropagation();fcJumpDate('${r.sel_date}')" style="color:#2f6fed;text-decoration:underline;text-underline-offset:2px" title="在指数大图定位该交易日">${r.sel_date}</a></td>
+    <td class="l">${r.code}</td><td class="l">${xq(r.code,r.name)}</td><td class="l">${r.ind}</td>
+    <td><b style="color:${r.grade==='A'?'#b91c1c':'#6b7280'}">${r.grade}</b></td><td>${r.hits}</td>
+    <td>${r.pattern}</td><td>${r.close}</td><td class="l">${r.entry_date||'待次日开盘'}</td><td>${r.entry_px==null?'—':r.entry_px}</td>
+    <td class="${r.ret[h]!=null&&r.ret[h]>=0?'up':'down'}">${r.ret[h]==null?'—':bwN(r.ret[h])+'%'}</td>
+    <td>${r.base[h]==null?'—':bwN(r.base[h])+'%'}</td>
+    <td class="${r.excess[h]!=null&&r.excess[h]>=0?'up':'down'}"><b>${r.excess[h]==null?'—':bwN(r.excess[h])+'pp'}</b></td>
+    <td class="muted">${r.status==='matured'?'已成熟':r.status==='pending'?'待成交':'跟踪中'}</td></tr>`;
+  regTable('bwSigT',BWD.recent.map(mk),fn,[5,6,7,9,10,11,12],[0,1,2,3,4,8,13],14,
+    {pageSize:30,defSort:{ci:0,dir:-1}});
+}
+function bwRenderCase(){
+  const t=BWD.today,c=BWD.case_stock||{};
+  let html='<b>当日入选</b> '+BWD.as_of+'：A 级（3天全中）'+t.n_A+' 只 / B 级（2天）'+t.n_B+' 只 · 当日新入跟踪 '+BWD.tracking.new_today+' 只。';
+  const A=t.picks.filter(x=>x.grade==='A').slice(0,6);
+  if(A.length)html+=' A 级：'+A.map(x=>x.code+' '+x.name+'（'+x.pattern+'）').join('；')+'。';
+  if(c.signals&&c.signals.length){
+    html+=' <b>案例复核 '+c.code+' '+c.name+'</b>：'+c.signals.map(x=>
+      x.sel_date+' '+x.grade+'级['+x.pattern+'] → '+(x.entry_px||'待成交')+
+      (x.ret5!=null?' · 5日 '+bwN(x.ret5)+'% / 超额 '+bwN(x.excess5)+'pp':' · 待成熟')).join('；')+'。单案例不构成结论。';
+  }
+  bwEl('bwCase').innerHTML=html;
+}
+function bwRenderStats(){
+  const h=String(BWS.hold),g=BWD.three_gates,s=BWD.summary.by_h[h]||{};
+  const yr=Object.entries(BWD.by_year_by_h[h]||{}).map(([y,v])=>y+' '+v.n+' 条 / '+bwN(v.excess)+'pp / 胜率 '+v.win+'%').join('；');
+  const hf=Object.entries(BWD.by_half_by_h[h]||{}).map(([y,v])=>y+' '+v.n+' 条 / '+bwN(v.excess)+'pp').join('；');
+  const sn=BWD.sensitivity.map(v=>'<tr><td class="l">'+v.label+'</td><td>'+((v.by_h[h]||{}).n==null?'—':v.by_h[h].n)+
+    '</td><td class="'+(((v.by_h[h]||{}).excess||0)>0?'up':'down')+'">'+bwN((v.by_h[h]||{}).excess)+'pp</td></tr>').join('');
+  bwEl('bwStats').innerHTML=
+    '<div><b>① 基准对比</b>：'+h+' 日前向 '+bwN(s.mean)+'% / 同成交日全市场等权 '+bwN(s.base_same)+
+      '% / 超额 <b class="'+((s.excess||0)>0?'up':'down')+'">'+bwN(s.excess)+'pp</b>；'+
+      '同期任意日基线 '+(BWD.base_any[h]==null?'—':bwN(BWD.base_any[h])+'%')+'。</div>'+
+    '<div><b>② 无未来函数</b>：t 日收盘确认（只用 t 及之前的K线/EXPMA），t+1 开盘成交；分级与标签不含未来信息，当日新入选前向收益留空待后续跑批补齐。</div>'+
+    '<div><b>③ 分年份稳健性 · '+(g.year_robust?'已过':'未过')+'</b>：'+yr+'；前后半段 '+hf+
+      '；正超额年数 '+g.positive_years+'/'+g.n_years+
+      '；最强 10% 信号占全部正超额 '+(BWD.top10_share==null?'—':BWD.top10_share+'%')+'。</div>'+
+    '<div style="margin-top:6px"><b>参数敏感性（'+h+' 日超额）</b></div>'+
+    '<table class="fcTbl" style="max-width:460px"><thead><tr><th class="l">口径</th><th>样本</th><th>超额</th></tr></thead><tbody>'+sn+'</tbody></table>'+
+    '<div style="margin-top:6px">'+BWD.verdict+'</div>';
+}
+function bwSetData(){
+  const h=String(BWS.hold),t=BWS.tab;
+  let pts=[],kind='bar',axis={};
+  if(t==='dist'){
+    (BWD.dist_by_h[h]||[]).forEach((b,i)=>pts.push({x:i,y:b.n,label:b.x0+'~'+b.x1,
+      color:(b.x0+b.x1)/2>=0?'#d92626':'#0d9e5f',
+      html:h+' 日超额 <b>'+b.x0+' ~ '+b.x1+' pp</b><br>信号 '+b.n+' 个'}));
+    axis.xlab=h+' 日超额分箱（pp）';axis.ylab='信号数';
+  }else if(t==='align'){
+    (BWD.event_path||[]).forEach((p,i)=>pts.push({x:i,y:p.v,label:String(p.i),
+      html:'相对选入日 <b>'+(p.i>=0?'+':'')+p.i+'</b> 交易日<br>平均累计涨跌 <b class="'+
+        ((p.v||0)>=0?'up':'down')+'">'+bwN(p.v)+'%</b><br>样本 '+p.n}));
+    kind='line';axis.xlab='相对选入日的交易日（0 = 选入日，收盘口径 · 描述性）';axis.ylab='累计涨跌%';
+  }else if(t==='timeline'){
+    (BWD.timeline_by_h[h]||[]).forEach((p,i)=>pts.push({x:i,y:p.excess,y2:p.n,cum:p.cum,date:p.date,
+      label:p.date.slice(5),color:p.excess>=0?'#d92626':'#0d9e5f',
+      html:'<b>'+p.date+'</b><br>当日信号 '+p.n+' 个<br>平均 '+h+' 日超额 <b class="'+
+        (p.excess>=0?'up':'down')+'">'+bwN(p.excess)+'pp</b><br>累计 '+bwN(p.cum)+'pp'}));
+    kind='timeline';axis.y2=true;axis.xlab='交易日 · 柱＝当日平均超额 / 线＝累计';axis.ylab='超额pp';
+  }else if(t==='bins'){
+    const bn=BWD.bins_by_h[h]||{};
+    let off=0;
+    [['vol_ratio','级别/形态'],['pos60','阴阳/双线']].forEach(([k,pre])=>{
+      (bn[k]||[]).forEach((b,i)=>pts.push({x:off+i,y:b.excess,label:pre+':'+b.label,
+        color:(b.excess||0)>=0?'#d92626':'#0d9e5f',
+        html:'<b>'+pre+' '+b.label+'</b><br>样本 '+b.n+' · 胜率 '+(b.win==null?'—':b.win+'%')+
+          '<br>'+h+' 日超额 <b class="'+((b.excess||0)>=0?'up':'down')+'">'+bwN(b.excess)+'pp</b>'}));
+      off+=(bn[k]||[]).length+1;
+    });
+    axis.xlab='级别/命中形态 → 阴阳与双线排列（'+h+'日超额）';axis.ylab='超额pp';
+  }else{
+    const yy=BWD.by_year_by_h[h]||{};
+    Object.entries(yy).forEach(([y,v],i)=>pts.push({x:i,y:v.excess,label:y+'年',
+      color:(v.excess||0)>=0?'#d92626':'#0d9e5f',
+      html:'<b>'+y+'</b><br>样本 '+v.n+' · 胜率 '+v.win+'%<br>'+h+' 日超额 <b>'+bwN(v.excess)+'pp</b>'}));
+    const off=Object.keys(yy).length+1;
+    (BWD.sensitivity||[]).forEach((v,i)=>{
+      const st=v.by_h[h]||{};
+      pts.push({x:off+i,y:st.excess,label:v.label,color:(st.excess||0)>=0?'#d92626':'#0d9e5f',
+        html:'<b>'+v.label+'</b><br>样本 '+(st.n==null?'—':st.n)+'<br>'+h+' 日超额 <b>'+bwN(st.excess)+'pp</b>'});
+    });
+    axis.splitAt=off;axis.xlab='分年份 → 参数变体';axis.ylab=h+'日超额pp';
+  }
+  BWPTS=pts;BWKIND=kind;BWAXIS=axis;
+  BWVIEW={start:0,count:Math.max(1,pts.length)};BWHOVER=null;
+  bwEl('bwLegend').innerHTML='<span><i class="sw" style="background:#d92626"></i>正</span>'+
+    '<span><i class="sw" style="background:#0d9e5f"></i>负</span>'+
+    (kind==='timeline'?'<span><i class="sw" style="background:#b7791f"></i>当日信号数（右轴）</span>':'')+
+    '<span class="muted">'+axis.xlab+'</span>';
+}
+function bwClampView(){
+  const n=BWPTS.length||1;
+  BWVIEW.count=Math.max(3,Math.min(n,Math.round(BWVIEW.count)));
+  BWVIEW.start=Math.max(0,Math.min(n-BWVIEW.count,Math.round(BWVIEW.start)));
+}
+function bwResetView(){BWVIEW={start:0,count:Math.max(1,BWPTS.length)};bwDraw()}
+function bwZoomAt(fx,factor){
+  const n=BWPTS.length||1,old=Object.assign({},BWVIEW),anchor=old.start+fx*old.count;
+  const nc=Math.max(3,Math.min(n,Math.round(old.count*factor)));
+  BWVIEW={start:Math.round(anchor-fx*nc),count:nc};bwClampView();bwDraw();
+}
+function bwLocal(e){const r=bwEl('bwChartWrap').getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}}
+function bwHitAt(p){
+  const g=BWGEO;if(!g||!BWPTS.length)return null;
+  const i=Math.round(g.s+(p.x-g.x0)/g.pw*g.c-.5);
+  if(i<0||i>=BWPTS.length)return null;
+  const q=BWPTS[i];if(!q)return null;
+  return {i:i,p:q,x:g.px(i),y:q.y==null?g.y1:g.py(q.y)};
+}
+function bwHideTip(){bwEl('bwTip').style.display='none'}
+function bwDraw(){
+  const w=bwEl('bwChartWrap');if(!w||!BWPTS.length)return;
+  const W=w.clientWidth,H=w.clientHeight,DPR=devicePixelRatio||1;
+  const cv=bwEl('bwChart'),ctx=cv.getContext('2d');
+  cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.clearRect(0,0,W,H);ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+  bwClampView();
+  const padL=58,padR=BWAXIS.y2?52:18,padT=16,padB=62;
+  const x0=padL,x1=W-padR,y0=padT,y1=H-padB,pw=x1-x0,ph=y1-y0;
+  const s=BWVIEW.start,c=BWVIEW.count,vis=BWPTS.slice(s,s+c);
+  let vals=[0];vis.forEach(p=>{if(p.y!=null)vals.push(p.y);if(p.cum!=null)vals.push(p.cum)});
+  let lo=Math.min.apply(null,vals),hi=Math.max.apply(null,vals);
+  const mg=Math.max(.3,(hi-lo)*.12);lo-=mg;hi+=mg;
+  const px=i=>x0+(c<=1?pw/2:(i-s+.5)*pw/c);
+  const py=v=>y0+(hi-v)/((hi-lo)||1)*ph;
+  const y2hi=BWAXIS.y2?Math.max(1,...vis.map(p=>p.y2||0)):1;
+  BWGEO={W,H,x0,x1,y0,y1,pw,ph,s,c,px,py,lo,hi,y2hi,
+    miniX0:x0,miniX1:x1,miniY:H-30,miniH:14};
+  ctx.font='11px -apple-system,sans-serif';ctx.textBaseline='middle';
+  for(let k=0;k<=4;k++){
+    const v=lo+(hi-lo)*k/4,yy=py(v);
+    ctx.strokeStyle=Math.abs(v)<1e-9?'#9ca3af':'#eef1f5';ctx.lineWidth=1;
+    ctx.setLineDash(Math.abs(v)<1e-9?[4,4]:[]);
+    ctx.beginPath();ctx.moveTo(x0,yy);ctx.lineTo(x1,yy);ctx.stroke();
+    ctx.setLineDash([]);ctx.fillStyle='#6b7280';ctx.textAlign='right';
+    ctx.fillText(v.toFixed(1),x0-6,yy);
+  }
+  ctx.textAlign='left';ctx.fillStyle='#9ca3af';ctx.fillText(BWAXIS.ylab||'',4,y0-4);
+  if(BWAXIS.y2){
+    ctx.textAlign='left';ctx.fillStyle='#b7791f';
+    for(let k=0;k<=2;k++)ctx.fillText(String(Math.round(y2hi*k/2)),x1+6,y1-(y1-y0)*k/2);
+  }
+  const bw=Math.max(1.5,Math.min(30,pw/Math.max(1,c)*.68));
+  vis.forEach((p,i)=>{
+    const xx=px(s+i),yy=p.y==null?y1:py(p.y),col=p.color||((p.y||0)>=0?'#d92626':'#0d9e5f');
+    if(BWKIND==='line'){
+      if(i>0&&vis[i-1].y!=null&&p.y!=null){
+        ctx.strokeStyle='#2f6fed';ctx.lineWidth=2;ctx.beginPath();
+        ctx.moveTo(px(s+i-1),py(vis[i-1].y));ctx.lineTo(xx,yy);ctx.stroke();
+      }
+      if(p.y!=null){ctx.fillStyle=col;ctx.beginPath();ctx.arc(xx,yy,2.5,0,7);ctx.fill()}
+    }else if(BWKIND==='timeline'){
+      ctx.fillStyle=col;ctx.fillRect(xx-bw/2,Math.min(yy,py(0)),bw,Math.abs(py(0)-yy));
+      if(i>0&&vis[i-1].cum!=null&&p.cum!=null){
+        ctx.strokeStyle='#b7791f';ctx.lineWidth=1.6;ctx.beginPath();
+        ctx.moveTo(px(s+i-1),py(vis[i-1].cum));ctx.lineTo(xx,py(p.cum));ctx.stroke();
+      }
+      if(p.y2!=null){
+        const hh=(y1-y0)*p.y2/y2hi*.3;
+        ctx.fillStyle='rgba(183,121,31,.35)';ctx.fillRect(xx-bw/2,y1-hh,bw,hh);
+      }
+    }else{
+      const z=py(0);ctx.fillStyle=col;
+      ctx.fillRect(xx-bw/2,Math.min(yy,z),bw,Math.max(1,Math.abs(z-yy)));
+    }
+  });
+  if(BWAXIS.splitAt!=null){
+    const xx=px(BWAXIS.splitAt);ctx.strokeStyle='#cbd5e1';ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.moveTo(xx,y0);ctx.lineTo(xx,y1);ctx.stroke();ctx.setLineDash([]);
+  }
+  const step=Math.max(1,Math.ceil(c/9));
+  ctx.textAlign='center';ctx.fillStyle='#6b7280';
+  vis.forEach((p,i)=>{
+    if((s+i)%step)return;
+    const lab=String(p.label==null?s+i:p.label);
+    ctx.fillText(lab.length>9?lab.slice(0,8)+'…':lab,px(s+i),y1+16);
+  });
+  // 缩略导航条
+  const g=BWGEO,n=BWPTS.length||1;
+  ctx.fillStyle='#f3f5f9';ctx.fillRect(x0,g.miniY,x1-x0,g.miniH);
+  ctx.strokeStyle='#dbe2ec';ctx.lineWidth=1;ctx.strokeRect(x0,g.miniY,x1-x0,g.miniH);
+  const bx=x0+s/n*(x1-x0),bwv=c/n*(x1-x0);
+  ctx.fillStyle='rgba(47,111,237,.28)';ctx.fillRect(bx,g.miniY,bwv,g.miniH);
+  ctx.strokeStyle='#2f6fed';ctx.strokeRect(bx,g.miniY,bwv,g.miniH);
+  g.miniBX=bx;g.miniBW=bwv;
+  if(BWSEL){
+    const a=Math.min(BWSEL.a,BWSEL.b),b=Math.max(BWSEL.a,BWSEL.b);
+    ctx.fillStyle='rgba(47,111,237,.12)';ctx.fillRect(a,y0,b-a,y1-y0);
+    ctx.strokeStyle='#2f6fed';ctx.setLineDash([4,3]);ctx.strokeRect(a,y0,b-a,y1-y0);ctx.setLineDash([]);
+  }
+  const hv=BWHOVER;
+  if(hv){
+    ctx.strokeStyle='#94a3b8';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(hv.x,y0);ctx.lineTo(hv.x,y1);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x0,hv.y);ctx.lineTo(x1,hv.y);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#2f6fed';ctx.beginPath();ctx.arc(hv.x,hv.y,3.5,0,7);ctx.fill();
+    const tip=bwEl('bwTip');tip.innerHTML=hv.p.html||'';
+    tip.style.display='block';
+    const tw=tip.offsetWidth,th=tip.offsetHeight;
+    tip.style.left=Math.max(4,Math.min(W-tw-4,hv.x+14))+'px';
+    tip.style.top=Math.max(4,Math.min(H-th-4,hv.y-th-10))+'px';
+  }
+}
+function bwBind(){
+  const w=bwEl('bwChartWrap');
+  bwEl('bwHold').addEventListener('change',e=>{BWS.hold=+e.target.value;bwSave();bwBuild()});
+  document.querySelectorAll('#bwTabs .bsTab').forEach(b=>b.onclick=()=>{
+    BWS.tab=b.dataset.t;bwSave();bwApplyUI();bwSetData();bwDraw()});
+  w.addEventListener('pointermove',e=>{
+    const p=bwLocal(e);
+    if(BWDRAG){
+      if(BWDRAG.mode==='mini'){
+        const g=BWGEO,n=BWPTS.length||1;
+        if(BWDRAG.sub==='pan')BWVIEW.start=Math.round(BWDRAG.start+(p.x-BWDRAG.x)/(g.miniX1-g.miniX0)*n);
+        else if(BWDRAG.sub==='left'){
+          const ns=Math.round(BWDRAG.start+(p.x-BWDRAG.x)/(g.miniX1-g.miniX0)*n);
+          BWVIEW.start=Math.max(0,Math.min(BWDRAG.start+BWDRAG.count-3,ns));
+          BWVIEW.count=BWDRAG.start+BWDRAG.count-BWVIEW.start;
+        }else if(BWDRAG.sub==='right'){
+          BWVIEW.start=BWDRAG.start;
+          BWVIEW.count=Math.round(BWDRAG.count+(p.x-BWDRAG.x)/(g.miniX1-g.miniX0)*n);
+        }else BWVIEW.start=Math.round((p.x-g.miniX0)/(g.miniX1-g.miniX0)*n-BWVIEW.count/2);
+        bwClampView();if(!BWRAF)BWRAF=requestAnimationFrame(()=>{BWRAF=0;bwDraw()});return;
+      }
+      const dx=p.x-BWDRAG.x;BWDRAG.moved=BWDRAG.moved||Math.abs(dx)>3||Math.abs(p.y-BWDRAG.y)>3;
+      if(BWDRAG.select){BWSEL={a:BWDRAG.x,b:p.x};bwDraw();return}
+      const g=BWGEO;BWVIEW.start=Math.round(BWDRAG.start-dx/(g.pw/Math.max(1,BWVIEW.count)));
+      bwClampView();if(!BWRAF)BWRAF=requestAnimationFrame(()=>{BWRAF=0;bwDraw()});return;
+    }
+    const h=bwHitAt(p);
+    if(h){BWHOVER=h;bwDraw()}
+    else if(BWHOVER){BWHOVER=null;bwHideTip();if(!BWRAF)BWRAF=requestAnimationFrame(()=>{BWRAF=0;bwDraw()})}
+  });
+  w.addEventListener('pointerleave',()=>{if(!BWDRAG){BWHOVER=null;bwHideTip();bwDraw()}});
+  w.addEventListener('pointerdown',e=>{
+    if(e.target===bwEl('bwGrip')||e.button!==0)return;
+    const p=bwLocal(e),g=BWGEO,now=Date.now();
+    if(BWLASTDN&&now-BWLASTDN.t<330&&Math.abs(p.x-BWLASTDN.x)<7&&Math.abs(p.y-BWLASTDN.y)<7){
+      BWLASTDN=null;if(BWPEND){clearTimeout(BWPEND);BWPEND=null}
+      bwHideTip();bwResetView();return;
+    }
+    BWLASTDN={t:now,x:p.x,y:p.y};
+    try{w.focus({preventScroll:true})}catch(err){}
+    if(g&&p.y>=g.miniY&&p.y<=g.miniY+g.miniH){
+      let sub='jump';
+      if(Math.abs(p.x-g.miniBX)<7)sub='left';
+      else if(Math.abs(p.x-(g.miniBX+g.miniBW))<7)sub='right';
+      else if(p.x>=g.miniBX&&p.x<=g.miniBX+g.miniBW)sub='pan';
+      BWDRAG={mode:'mini',sub:sub,x:p.x,start:BWVIEW.start,count:BWVIEW.count,moved:false};
+      if(sub==='jump'){
+        BWVIEW.start=Math.round((p.x-g.miniX0)/(g.miniX1-g.miniX0)*BWPTS.length-BWVIEW.count/2);
+        bwClampView();bwDraw();
+      }
+    }else{
+      BWDRAG={mode:'chart',x:p.x,y:p.y,start:BWVIEW.start,select:!!e.shiftKey,moved:false};
+      if(e.shiftKey)BWSEL={a:p.x,b:p.x};
+    }
+    try{w.setPointerCapture(e.pointerId)}catch(err){}
+  });
+  w.addEventListener('pointerup',e=>{
+    const p=bwLocal(e),d=BWDRAG;BWDRAG=null;
+    if(!d)return;
+    try{w.releasePointerCapture(e.pointerId)}catch(err){}
+    if(d.mode==='mini'){bwSave();return}
+    if(d.select&&BWSEL&&Math.abs(BWSEL.b-BWSEL.a)>10){
+      const g=BWGEO,aa=Math.min(BWSEL.a,BWSEL.b),bb=Math.max(BWSEL.a,BWSEL.b);
+      const i0=Math.max(0,Math.floor(BWVIEW.start+(aa-g.x0)/g.pw*BWVIEW.count));
+      const i1=Math.min(BWPTS.length,Math.ceil(BWVIEW.start+(bb-g.x0)/g.pw*BWVIEW.count));
+      BWVIEW={start:i0,count:Math.max(3,i1-i0)};BWSEL=null;bwClampView();bwDraw();return;
+    }
+    BWSEL=null;
+    if(!d.moved){
+      const h=bwHitAt(p);
+      if(h&&h.p.date){if(BWPEND)clearTimeout(BWPEND);BWPEND=setTimeout(()=>{BWPEND=null;fcJumpDate(h.p.date)},320)}
+      else if(h&&h.p.code){jumpKline(h.p.code)}
+    }
+    bwDraw();
+  });
+  w.addEventListener('wheel',e=>{
+    if(!BWGEO)return;e.preventDefault();
+    const p=bwLocal(e),fx=Math.max(0,Math.min(1,(p.x-BWGEO.x0)/BWGEO.pw));
+    bwZoomAt(fx,e.deltaY>0?1.18:1/1.18);
+  },{passive:false});
+  w.addEventListener('dblclick',e=>{e.preventDefault();if(BWPEND){clearTimeout(BWPEND);BWPEND=null}bwHideTip();bwResetView()});
+  w.addEventListener('keydown',e=>{
+    if(!BWPTS.length)return;const k=e.key;
+    if(k==='+'||k==='='){bwZoomAt(.5,1/1.25);e.preventDefault()}
+    else if(k==='-'||k==='_'){bwZoomAt(.5,1.25);e.preventDefault()}
+    else if(k==='ArrowLeft'){BWVIEW.start-=Math.max(1,Math.round(BWVIEW.count*.15));bwClampView();bwDraw();e.preventDefault()}
+    else if(k==='ArrowRight'){BWVIEW.start+=Math.max(1,Math.round(BWVIEW.count*.15));bwClampView();bwDraw();e.preventDefault()}
+    else if(k==='ArrowUp'){bwZoomAt(.5,1/1.2);e.preventDefault()}
+    else if(k==='ArrowDown'){bwZoomAt(.5,1.2);e.preventDefault()}
+    else if(k==='Home'||k==='0'){bwResetView();e.preventDefault()}
+  });
+  const grip=bwEl('bwGrip');
+  grip.addEventListener('pointerdown',e=>{
+    e.stopPropagation();const y=e.clientY,h=w.clientHeight;
+    try{grip.setPointerCapture(e.pointerId)}catch(err){}
+    const mv=ev=>{const nh=Math.max(220,Math.min(860,h+ev.clientY-y));
+      w.style.height=nh+'px';BWS.height=nh;bwDraw()};
+    const up=ev=>{grip.removeEventListener('pointermove',mv);grip.removeEventListener('pointerup',up);
+      bwSave();bwDraw()};
+    grip.addEventListener('pointermove',mv);grip.addEventListener('pointerup',up);
+  });
+  addEventListener('resize',()=>{if(currentTab==='p16'&&BWPTS.length)bwDraw()});
+}
+
 </script>
 </body>
 </html>

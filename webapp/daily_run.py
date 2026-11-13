@@ -389,7 +389,7 @@ try:
     sys.path.insert(0, BASE + '/webapp')
     import lizhuang as _lz
     _lzd = _lz.build()
-    _lzr = _lz.write_report(_lzd)
+    _lzr = _lzd.get('report') or os.path.join(DAILY_DIR, '立桩量_%s.md' % _lzd['as_of'])
     _lz5 = _lzd['summary']['by_h'].get('5', {})
     out['lizhuang'] = {
         'date': _lzd['as_of'], 'n_signals': _lzd['n_signals'],
@@ -402,6 +402,31 @@ try:
     del _lzd, _lz5
 except Exception as e:
     out['lizhuang'] = {'error': str(e)}
+
+# 3.97) 双线裹实体：3日内≥2天实体同时包住 EXPMA12/50（3天全中=A级）
+#       产出 webapp/bodywrap.json（p16 数据源）+ bodywrap/signals.csv + 专题报告
+#       每次跑批重算全历史，跟踪中信号的 10 日涨幅自动补齐
+try:
+    sys.path.insert(0, BASE + '/webapp')
+    import bodywrap as _bw
+    _bwd = _bw.build()
+    out['bodywrap'] = {
+        'date': _bwd['as_of'], 'n_signals': _bwd['n_signals'],
+        'today': _bwd['today']['n'], 'n_A': _bwd['today']['n_A'],
+        'n_B': _bwd['today']['n_B'],
+        'new_today': _bwd['tracking']['new_today'],
+        'matured': _bwd['tracking']['matured'],
+        'tracking': _bwd['tracking']['tracking'],
+        'd5_excess': _bwd['summary']['by_h']['5']['excess'],
+        'd10_excess': _bwd['summary']['by_h']['10']['excess'],
+        'd10_win': _bwd['summary']['by_h']['10']['win'],
+        'year_robust': _bwd['three_gates']['year_robust'],
+        'report': _bwd.get('report'),
+    }
+    out['bodywrap_report'] = _bwd.get('report')
+    del _bwd
+except Exception as e:
+    out['bodywrap'] = {'error': str(e)}
 
 try:
     del D2
@@ -752,6 +777,24 @@ if out['date']:
                         _lz['unconfirmed_excess'], _lz['date']))
     except Exception as _e:
         lines.append('- 立桩量日报段生成失败：%s' % _e)
+    # ⑭ 双线裹实体：3日内≥2天实体包住 EXPMA12/50（3天全中=A级），全历史前向 + 持续跟踪
+    try:
+        _bw = out.get('bodywrap') or {}
+        if _bw.get('error'):
+            raise RuntimeError(_bw['error'])
+        lines.append('## ⑭ 双线裹实体（EXPMA12/50 裹于实体 · 描述性研究）')
+        lines.append('- 全历史 **%d** 个信号（次日开盘成交）：5 日超额 **%+.2fpp**、'
+                     '10 日超额 **%+.2fpp**、超额胜率 %.1f%%；'
+                     '成熟 %d / 跟踪中 %d / 当日新入 %d。'
+                     % (_bw['n_signals'], _bw['d5_excess'], _bw['d10_excess'],
+                        _bw['d10_win'], _bw['matured'], _bw['tracking'], _bw['new_today']))
+        lines.append('- 当日入选 **%d** 只（A 级 3 天全中 %d / B 级 2 天 %d）。'
+                     '③ 分年份稳健性%s（本地K线仅两个年份段、信号集中近期），'
+                     '**结论仅标描述/候选**，不写成操作建议。详见 daily/双线裹实体_%s.md 与工作台「双线裹实体」页签。'
+                     % (_bw['today'], _bw['n_A'], _bw['n_B'],
+                        '已过' if _bw['year_robust'] else '未过', _bw['date']))
+    except Exception as _e:
+        lines.append('- 双线裹实体日报段生成失败：%s' % _e)
     lines.append('')
     lines.append('> 结果为客观数据筛选，不构成投资建议。工作台：http://127.0.0.1:%d' % PORT)
     rep = os.path.join(DAILY_DIR, '日报_%s.md' % ds)

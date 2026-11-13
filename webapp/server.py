@@ -2079,6 +2079,21 @@ class H(BaseHTTPRequestHandler):
             # 沪深300 · EXPMA12 首次上穿 EXPMA50（转势首叉）：收盘跑批产物，前端自行按冷静期/持有期重算
             self._json(_tl_json(os.path.join(WEB, 'firstcross.json'),
                                 {'error': 'webapp/firstcross.json missing：请先跑 daily_run.py'}))
+        elif u.path == '/api/bodywrap':
+            # 双线裹实体：3日内≥2天实体包住 EXPMA12/50，全历史前向验证 + 持续跟踪
+            self._json(_tl_json(os.path.join(WEB, 'bodywrap.json'),
+                                {'error': 'webapp/bodywrap.json missing：请先跑 daily_run.py'}))
+        elif u.path == '/api/bodywrap_signals.csv':
+            p = os.path.join(WEB, 'bodywrap', 'signals.csv')
+            if os.path.exists(p):
+                data = open(p, 'rb').read()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/csv; charset=utf-8')
+                self.send_header('Content-Length', str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+            else:
+                self._json({'error': 'signals.csv missing'})
         elif u.path == '/api/lizhuang':
             # 立桩量：公开公式复现 + 三关前向验证，描述性研究产物，不接交易链路
             self._json(_tl_json(os.path.join(WEB, 'lizhuang.json'),
