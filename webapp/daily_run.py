@@ -430,6 +430,14 @@ try:
             'd10_win': _bwd['strict2']['summary']['by_h']['10']['win'],
             'year_robust': _bwd['strict2']['three_gates']['year_robust'],
         },
+        'strict3': {
+            'n_signals': _bwd['strict3']['n_signals'],
+            'today': _bwd['strict3']['today']['n'],
+            'd5_excess': _bwd['strict3']['summary']['by_h']['5']['excess'],
+            'd10_excess': _bwd['strict3']['summary']['by_h']['10']['excess'],
+            'd10_win': _bwd['strict3']['summary']['by_h']['10']['win'],
+            'year_robust': _bwd['strict3']['three_gates']['year_robust'],
+        },
     }
     out['bodywrap_report'] = _bwd.get('report')
     del _bwd
@@ -810,6 +818,14 @@ if out['date']:
                          % (_s2['n_signals'], _s2['d5_excess'], _s2['d10_excess'],
                             _s2['d10_win'], _s2['today'],
                             '已过' if _s2['year_robust'] else '未过'))
+        _s3 = _bw.get('strict3') or {}
+        if _s3:
+            lines.append('- 口径三「连续三日上涨阳线裹双线（更严格）」：全历史 **%d** 个信号，'
+                         '5 日超额 **%+.2fpp**、10 日 **%+.2fpp**、超额胜率 %.1f%%；'
+                         '当日入选 **%d** 只。样本量过小，数值不具统计意义，仅标描述/候选；'
+                         '明细 webapp/bodywrap/signals_strict3.csv。'
+                         % (_s3['n_signals'], _s3['d5_excess'], _s3['d10_excess'],
+                            _s3['d10_win'], _s3['today']))
     except Exception as _e:
         lines.append('- 双线裹实体日报段生成失败：%s' % _e)
     lines.append('')

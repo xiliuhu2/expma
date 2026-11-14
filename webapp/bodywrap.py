@@ -185,10 +185,10 @@ def yang_body_hits(s, t):
                  o - 1e-9 <= e50 <= c + 1e-9) else 0
 
 
-def collect_strict2(stocks, mret, universe, calendar):
-    """口径二信号：连续两个交易日均为上涨阳线（收>开 且 收>昨收）且实体包住 EXPMA12/50（不看 MA89）。
-    当天下跌（含低开高走的假阳线）一律剔除；t 日收盘确认、t+1 开盘成交；is_new 标记「首次达成连续两日」（簇首日），
-    用于剔除连续 3 天以上造成的重叠样本，作敏感性对照。
+def collect_strict(stocks, mret, universe, calendar, run_len=2):
+    """严格口径：连续 run_len 个交易日均为上涨阳线（收>开 且 收>昨收）且实体包住 EXPMA12/50（不看 MA89）。
+    run_len=2 为口径二、run_len=3 为口径三（更严格、范围更小）。当天下跌（含低开高走的假阳线）一律剔除；
+    t 日收盘确认、t+1 开盘成交；is_new 标记「首次达成连续 N 日」（簇首日），用于剔除更长簇造成的重叠样本。
     """
     signals = []
     for code, s in stocks.items():
@@ -198,7 +198,7 @@ def collect_strict2(stocks, mret, universe, calendar):
             hits[t] = yang_body_hits(s, t)
         meta = universe.get(code, {})
         for t in range(WARMUP, n):
-            if not (hits[t - 1] and hits[t]):
+            if not all(hits[t - k] for k in range(run_len)):
                 continue
             te = t + 1 if t + 1 < n else None
             if te is not None and o[te] <= 0:
@@ -215,12 +215,13 @@ def collect_strict2(stocks, mret, universe, calendar):
             else:
                 for hh in HORIZONS:
                     ret[str(hh)] = base[str(hh)] = exc[str(hh)] = None
-            is_new = not hits[t - 2]
+            is_new = not hits[t - run_len]
             signals.append({
                 'sel_date': dates[t], 'code': code,
                 'name': meta.get('name', ''), 'ind': meta.get('ind', ''),
-                'grade': 'S2', 'hits': 2,
+                'grade': 'S%d' % run_len, 'hits': run_len,
                 'pattern': '%d%d%d' % (hits[t - 2], hits[t - 1], hits[t]),
+                'pattern4': '%d%d%d%d' % (hits[t - 3], hits[t - 2], hits[t - 1], hits[t]),
                 'is_new': is_new,
                 'close': _r(c[t], 2), 'open': _r(o[t], 2),
                 'day_chg': _r((c[t] / c[t - 1] - 1) * 100, 2) if c[t - 1] > 0 else None,
@@ -502,25 +503,37 @@ def build():
                                    for r in signals if r['code'] == 'sz002520' and
                                    r['sel_date'] >= calendar[-20]]},
     }
-    sig2 = collect_strict2(stocks, mret, universe, calendar)
+    sig2 = collect_strict(stocks, mret, universe, calendar, 2)
     ev2 = event_path(sig2)
     for r in sig2:
         r.pop('_s', None)
         r.pop('_ti', None)
-    d['strict2'] = build_strict2_pack(sig2, base_any, calendar, split_date, ev2, universe, as_of)
+    d['strict2'] = build_strict_pack(sig2, base_any, calendar, split_date, ev2,
+                                     universe, as_of, 2, '口径二')
     d['strict2']['n_stocks'] = len(stocks)
+
+    sig3 = collect_strict(stocks, mret, universe, calendar, 3)
+    ev3 = event_path(sig3)
+    for r in sig3:
+        r.pop('_s', None)
+        r.pop('_ti', None)
+    d['strict3'] = build_strict_pack(sig3, base_any, calendar, split_date, ev3,
+                                     universe, as_of, 3, '口径三')
+    d['strict3']['n_stocks'] = len(stocks)
 
     with open(OUT_JSON, 'w') as f:
         json.dump(d, f, ensure_ascii=False)
     write_csv(signals)
     write_csv(sig2, os.path.join(OUT_DIR, 'signals_strict2.csv'))
+    write_csv(sig3, os.path.join(OUT_DIR, 'signals_strict3.csv'))
     report = write_report(d)
     d['report'] = report
     return d
 
 
-def build_strict2_pack(signals, base_any, calendar, split_date, ev_path, universe, as_of):
-    """口径二完整数据包：结构与主口径一致，前端可直接切换数据源。"""
+def build_strict_pack(signals, base_any, calendar, split_date, ev_path, universe, as_of,
+                       run_len=2, label="口径二"):
+    """严格口径完整数据包（连续 run_len 日上涨阳线）：结构与主口径一致，前端可直接切换数据源。"""
     by_h = by_h_stats(signals, base_any)
     by_grade = {'A': by_h_stats([r for r in signals if r['is_new']], base_any),
                 'B': by_h_stats([r for r in signals if not r['is_new']], base_any)}
@@ -536,7 +549,8 @@ def build_strict2_pack(signals, base_any, calendar, split_date, ev_path, univers
     variants = (
         ('仅首次达成（剔除重叠）', lambda r: r['is_new']),
         ('簇内延续日', lambda r: not r['is_new']),
-        ('连续 3 天上涨阳柱', lambda r: r['pattern'] == '111'),
+        ('连续 %d 天上涨阳线' % (run_len + 1),
+         lambda r: r.get('pattern4', '')[-(run_len + 1):] == '1' * (run_len + 1)),
         ('EMA12>EMA50（双线多头）', lambda r: r['e12_gt_e50']),
         ('EMA12≤EMA50（双线空头）', lambda r: not r['e12_gt_e50']),
         ('当日放量 vr≥1.2', lambda r: (r['vr'] or 0) >= 1.2),
@@ -560,12 +574,15 @@ def build_strict2_pack(signals, base_any, calendar, split_date, ev_path, univers
     three_gates = {'base_compare': True, 'no_future': True, 'year_robust': year_robust,
                    'positive_years': yr_pos, 'n_years': yr_n, 'top10_share': top10_share,
                    'split_date': split_date}
-    verdict = ('口径二三关③未过（本地K线仅 %d 个年份段、信号集中在近期），'
+    verdict = ('%s三关③未过（本地K线仅 %d 个年份段、信号集中在近期），'
                '全部结论仅标<b>描述/候选</b>，不构成任何买入/等待建议；'
-               '敏感性挑出的组合需查样本外与平台状，勿直接用于操作。' % yr_n)
+               '敏感性挑出的组合需查样本外与平台状，勿直接用于操作。' % (label, yr_n))
     if year_robust:
-        verdict = ('口径二三关全过：基准对比成立、无未来函数、分年份与前后半段稳健；'
+        verdict = ('%s三关全过：基准对比成立、无未来函数、分年份与前后半段稳健；' % label +
                    '仍需独立样本外复核，不构成投资建议。')
+    if len(signals) < 30:
+        verdict += (' 全历史仅 %d 条信号，样本量过小，任何数值（含正负）都不具统计意义。'
+                    % len(signals))
 
     dist_by_h, timeline_by_h, bins_by_h = {}, {}, {}
     for h in HORIZONS:
@@ -592,13 +609,21 @@ def build_strict2_pack(signals, base_any, calendar, split_date, ev_path, univers
     today_sorted = sorted(today_rows, key=lambda r: (-int(r['is_new']), -(r['vr'] or 0)))
     recent = sorted(signals, key=lambda r: (r['sel_date'], r['code']), reverse=True)[:120]
     matured = sum(1 for r in signals if r['status'] == 'matured')
-    case_code = 'sh603366'
+    if run_len >= 3:
+        cand = [r for r in signals if r['sel_date'] >= calendar[-20]
+                and r['ret'].get('10') is not None]
+        pick = max(cand, key=lambda r: r['ret']['10']) if cand else (recent[0] if recent else None)
+        case_code = pick['code'] if pick else ''
+    else:
+        case_code = 'sh603366'
+    case_rows = [r for r in signals if r['code'] == case_code and
+                 r['sel_date'] >= calendar[-20]]
     return {
         'as_of': as_of, 'n_stocks': None, 'n_days': len(calendar),
         'n_signals': len(signals),
-        'definition': {'horizons': HORIZONS, 'window': 2, 'min_hits': 2,
+        'definition': {'horizons': HORIZONS, 'window': run_len, 'min_hits': run_len,
                        'warmup': WARMUP, 'expma': [12, 50], 'ma89': '不涉及',
-                       'rule': '连续两个交易日均为上涨阳线（收>开 且 收>昨收，剔除当天下跌/假阳线）且阳柱实体同时包住 EXPMA12/EXPMA50；不看 MA89'},
+                       'rule': '连续 %d 个交易日均为上涨阳线（收>开 且 收>昨收，剔除当天下跌/假阳线）且阳柱实体同时包住 EXPMA12/EXPMA50；不看 MA89' % run_len},
         'summary': {'by_h': by_h}, 'by_grade': by_grade,
         'base_any': base_any,
         'by_year': by_year, 'by_half': by_half,
@@ -620,18 +645,17 @@ def build_strict2_pack(signals, base_any, calendar, split_date, ev_path, univers
                      'matured10': sum(1 for r in signals if r['ret'].get('10') is not None)},
         'verdict': verdict,
         'case': {'n_A': 0, 'n_B': len(today_rows),
-                 'picks': [{'code': r['code'], 'name': r['name'], 'grade': 'S2',
+                 'picks': [{'code': r['code'], 'name': r['name'], 'grade': 'S%d' % run_len,
                             'pattern': r['pattern'], 'close': r['close'],
                             'e12': r['e12'], 'e50': r['e50']} for r in today_sorted[:12]]},
         'case_stock': {'code': case_code, 'name': universe.get(case_code, {}).get('name', ''),
-                       'signals': [{'sel_date': r['sel_date'], 'grade': 'S2',
+                       'signals': [{'sel_date': r['sel_date'], 'grade': 'S%d' % run_len,
                                     'pattern': r['pattern'], 'entry_date': r['entry_date'],
                                     'entry_px': r['entry_px'], 'ret5': r['ret'].get('5'),
                                     'ret10': r['ret'].get('10'),
                                     'excess5': r['excess'].get('5'),
                                     'excess10': r['excess'].get('10')}
-                                   for r in signals if r['code'] == case_code and
-                                   r['sel_date'] >= calendar[-20]]},
+                                   for r in case_rows]},
     }
 
 
@@ -721,11 +745,17 @@ def write_report(d, path=None):
               '- %s' % d['verdict'].replace('<b>', '').replace('</b>', ''),
               '', '> 结果为客观数据筛选与描述性回测，不构成投资建议。',
               '> 全历史信号与 10 日涨幅明细：webapp/bodywrap/signals.csv（每日跑批自动补齐跟踪中信号）。']
-    s2 = d.get('strict2')
-    if s2:
-        lines += ['', '---', '', '## 口径二 · 连续两日上涨阳线裹双线（不看 MA89）',
-                  '- 信号：**连续两个交易日均为上涨阳线**（`收>开` 且 `收>昨收`，当日涨跌幅为正），阳柱实体 `[开, 收]` 同时包住 EXPMA12 与 EXPMA50；**低开高走但当日仍收跌/平盘的假阳线一律剔除**；MA89 不参与任何判定。信号表 `day_chg` 列为选入日当日涨跌幅，可逐条核验。',
-                  '- t 日收盘确认、**t+1 开盘成交**；基准（同成交日全市场等权 + 同期任意日）与三关口徑同口径一。',
+    for key, label, run_len, csv_name, case_label in (
+            ('strict2', '口径二 · 连续两日上涨阳线裹双线（不看 MA89）', 2,
+             'signals_strict2.csv', '截图样本'),
+            ('strict3', '口径三 · 连续三日上涨阳线裹双线（更严格）', 3,
+             'signals_strict3.csv', '近期样本')):
+        s2 = d.get(key)
+        if not s2:
+            continue
+        lines += ['', '---', '', '## ' + label,
+                  '- 信号：**连续 %d 个交易日均为上涨阳线**（`收>开` 且 `收>昨收`，当日涨跌幅为正），阳柱实体 `[开, 收]` 同时包住 EXPMA12 与 EXPMA50；**低开高走但当日仍收跌/平盘的假阳线一律剔除**；MA89 不参与任何判定。信号表 `day_chg` 列为选入日当日涨跌幅，可逐条核验。' % run_len,
+                  '- t 日收盘确认、**t+1 开盘成交**；基准（同成交日全市场等权 + 同期任意日）与三关口径同口径一。',
                   '- 全历史信号 %d 个，成熟 %d / 跟踪中 %d；当日入选 %d 只（首次达成 %d / 簇内延续 %d）。' % (
                       s2['n_signals'], s2['tracking']['matured'], s2['tracking']['tracking'],
                       s2['today']['n'], s2['today']['n_A'], s2['today']['n_B']),
@@ -752,14 +782,15 @@ def write_report(d, path=None):
             a, b = v['by_h']['5'], v['by_h']['10']
             lines.append('| %s | %s | %s | %s |' % (v['label'], a['n'], a['excess'], b['excess']))
         lines += ['', '### 当日入选（%s，%d 只）' % (d['as_of'], s2['today']['n']),
-                  '| 代码 | 名称 | 命中形态 | 收盘 | EMA12 | EMA50 | 5日量比 |',
-                  '|---|---|---|---|---|---|---|']
+                  '| 代码 | 名称 | 当日涨幅% | 命中形态 | 收盘 | EMA12 | EMA50 | 5日量比 |',
+                  '|---|---|---|---|---|---|---|---|']
         for r in s2['today']['picks']:
-            lines.append('| %s | %s | %s | %s | %s | %s | %s |' % (
-                r['code'], r['name'], r['pattern'], r['close'], r['e12'], r['e50'], r.get('vr')))
+            lines.append('| %s | %s | %s | %s | %s | %s | %s | %s |' % (
+                r['code'], r['name'], r.get('day_chg', '—'), r['pattern'], r['close'],
+                r['e12'], r['e50'], r.get('vr')))
         cs2 = s2.get('case_stock') or {}
         if cs2.get('signals'):
-            lines += ['', '### 案例复核（截图样本 %s %s）' % (cs2['code'], cs2['name']),
+            lines += ['', '### 案例复核（%s %s %s）' % (case_label, cs2['code'], cs2['name']),
                       '| 选入日 | 命中形态 | 成交日 | 成交价 | 5日% | 5日超额pp | 10日% | 10日超额pp |',
                       '|---|---|---|---|---|---|---|---|']
             for r in cs2['signals']:
@@ -770,7 +801,7 @@ def write_report(d, path=None):
         lines += ['', '- 三关结论：①已过 / ②已过 / ③%s。%s' % (
                       '已过' if s2['three_gates']['year_robust'] else '未过',
                       s2['verdict'].replace('<b>', '').replace('</b>', '')),
-                  '- 全历史信号与 10 日涨幅明细：webapp/bodywrap/signals_strict2.csv。']
+                  '- 全历史信号与 10 日涨幅明细：webapp/bodywrap/%s。' % csv_name]
     open(path, 'w').write('\n'.join(lines) + '\n')
     return path
 
@@ -788,4 +819,10 @@ if __name__ == '__main__':
                                   'd10_excess': s2['summary']['by_h']['10']['excess'],
                                   'win10': s2['summary']['by_h']['10']['win'],
                                   'year_robust': s2['three_gates']['year_robust']},
+                      'strict3': {'n_signals': d['strict3']['n_signals'],
+                                  'today': d['strict3']['today']['n'],
+                                  'd5_excess': d['strict3']['summary']['by_h']['5']['excess'],
+                                  'd10_excess': d['strict3']['summary']['by_h']['10']['excess'],
+                                  'win10': d['strict3']['summary']['by_h']['10']['win'],
+                                  'year_robust': d['strict3']['three_gates']['year_robust']},
                       'report': d['report']}, ensure_ascii=False))

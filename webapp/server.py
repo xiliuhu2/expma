@@ -2083,8 +2083,10 @@ class H(BaseHTTPRequestHandler):
             # 双线裹实体：3日内≥2天实体包住 EXPMA12/50，全历史前向验证 + 持续跟踪
             self._json(_tl_json(os.path.join(WEB, 'bodywrap.json'),
                                 {'error': 'webapp/bodywrap.json missing：请先跑 daily_run.py'}))
-        elif u.path in ('/api/bodywrap_signals.csv', '/api/bodywrap_strict2.csv'):
-            fn = 'signals_strict2.csv' if u.path.endswith('strict2.csv') else 'signals.csv'
+        elif u.path in ('/api/bodywrap_signals.csv', '/api/bodywrap_strict2.csv',
+                        '/api/bodywrap_strict3.csv'):
+            fn = ('signals_strict3.csv' if u.path.endswith('strict3.csv') else
+                  'signals_strict2.csv' if u.path.endswith('strict2.csv') else 'signals.csv')
             p = os.path.join(WEB, 'bodywrap', fn)
             if os.path.exists(p):
                 data = open(p, 'rb').read()
