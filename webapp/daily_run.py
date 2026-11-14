@@ -422,6 +422,14 @@ try:
         'd10_win': _bwd['summary']['by_h']['10']['win'],
         'year_robust': _bwd['three_gates']['year_robust'],
         'report': _bwd.get('report'),
+        'strict2': {
+            'n_signals': _bwd['strict2']['n_signals'],
+            'today': _bwd['strict2']['today']['n'],
+            'd5_excess': _bwd['strict2']['summary']['by_h']['5']['excess'],
+            'd10_excess': _bwd['strict2']['summary']['by_h']['10']['excess'],
+            'd10_win': _bwd['strict2']['summary']['by_h']['10']['win'],
+            'year_robust': _bwd['strict2']['three_gates']['year_robust'],
+        },
     }
     out['bodywrap_report'] = _bwd.get('report')
     del _bwd
@@ -793,6 +801,15 @@ if out['date']:
                      '**结论仅标描述/候选**，不写成操作建议。详见 daily/双线裹实体_%s.md 与工作台「双线裹实体」页签。'
                      % (_bw['today'], _bw['n_A'], _bw['n_B'],
                         '已过' if _bw['year_robust'] else '未过', _bw['date']))
+        _s2 = _bw.get('strict2') or {}
+        if _s2:
+            lines.append('- 口径二「连续两日阳柱裹双线（不看89线）」：全历史 **%d** 个信号，'
+                         '5 日超额 **%+.2fpp**、10 日 **%+.2fpp**、超额胜率 %.1f%%；'
+                         '当日入选 **%d** 只。③分年份%s，同样仅标描述/候选；'
+                         '明细 webapp/bodywrap/signals_strict2.csv。'
+                         % (_s2['n_signals'], _s2['d5_excess'], _s2['d10_excess'],
+                            _s2['d10_win'], _s2['today'],
+                            '已过' if _s2['year_robust'] else '未过'))
     except Exception as _e:
         lines.append('- 双线裹实体日报段生成失败：%s' % _e)
     lines.append('')
