@@ -171,11 +171,14 @@ def summarize(rows, key='excess', base_any=None, h=5):
 
 
 def yang_body_hits(s, t):
-    """口径二：t 日必须是阳线（收>开），且阳柱实体同时包住 EXPMA12/50。
+    """口径二：t 日必须是「上涨阳线」——收>开 且 收>昨收（当日涨跌幅为正），
+    且阳柱实体同时包住 EXPMA12/50。低开高走但当日仍收跌/平盘的假阳线不算。
     不涉及 MA89（89 均线不参与本策略任何判定）。
     """
     o, c = s['o'][t], s['c'][t]
     if o <= 0 or c <= o:
+        return 0
+    if t > 0 and s['c'][t - 1] > 0 and c <= s['c'][t - 1]:
         return 0
     e12, e50 = s['e12'][t], s['e50'][t]
     return 1 if (o - 1e-9 <= e12 <= c + 1e-9 and
@@ -183,8 +186,8 @@ def yang_body_hits(s, t):
 
 
 def collect_strict2(stocks, mret, universe, calendar):
-    """口径二信号：连续两个交易日均为阳线且实体包住 EXPMA12/50（不看 MA89）。
-    t 日收盘确认、t+1 开盘成交；is_new 标记「首次达成连续两日」（簇首日），
+    """口径二信号：连续两个交易日均为上涨阳线（收>开 且 收>昨收）且实体包住 EXPMA12/50（不看 MA89）。
+    当天下跌（含低开高走的假阳线）一律剔除；t 日收盘确认、t+1 开盘成交；is_new 标记「首次达成连续两日」（簇首日），
     用于剔除连续 3 天以上造成的重叠样本，作敏感性对照。
     """
     signals = []
@@ -219,7 +222,9 @@ def collect_strict2(stocks, mret, universe, calendar):
                 'grade': 'S2', 'hits': 2,
                 'pattern': '%d%d%d' % (hits[t - 2], hits[t - 1], hits[t]),
                 'is_new': is_new,
-                'close': _r(c[t], 2), 'e12': _r(e12[t], 3), 'e50': _r(e50[t], 3),
+                'close': _r(c[t], 2), 'open': _r(o[t], 2),
+                'day_chg': _r((c[t] / c[t - 1] - 1) * 100, 2) if c[t - 1] > 0 else None,
+                'e12': _r(e12[t], 3), 'e50': _r(e50[t], 3),
                 'bull': True, 'e12_gt_e50': e12[t] > e50[t],
                 'vr': _r(s['v'][t] / (sum(s['v'][t - 5:t]) / 5), 2) if sum(s['v'][t - 5:t]) else None,
                 'entry_date': dates[te] if te is not None else None,
@@ -531,7 +536,7 @@ def build_strict2_pack(signals, base_any, calendar, split_date, ev_path, univers
     variants = (
         ('仅首次达成（剔除重叠）', lambda r: r['is_new']),
         ('簇内延续日', lambda r: not r['is_new']),
-        ('连续 3 天阳柱', lambda r: r['pattern'] == '111'),
+        ('连续 3 天上涨阳柱', lambda r: r['pattern'] == '111'),
         ('EMA12>EMA50（双线多头）', lambda r: r['e12_gt_e50']),
         ('EMA12≤EMA50（双线空头）', lambda r: not r['e12_gt_e50']),
         ('当日放量 vr≥1.2', lambda r: (r['vr'] or 0) >= 1.2),
@@ -593,7 +598,7 @@ def build_strict2_pack(signals, base_any, calendar, split_date, ev_path, univers
         'n_signals': len(signals),
         'definition': {'horizons': HORIZONS, 'window': 2, 'min_hits': 2,
                        'warmup': WARMUP, 'expma': [12, 50], 'ma89': '不涉及',
-                       'rule': '连续两个交易日均为阳线（收>开）且阳柱实体同时包住 EXPMA12/EXPMA50；不看 MA89'},
+                       'rule': '连续两个交易日均为上涨阳线（收>开 且 收>昨收，剔除当天下跌/假阳线）且阳柱实体同时包住 EXPMA12/EXPMA50；不看 MA89'},
         'summary': {'by_h': by_h}, 'by_grade': by_grade,
         'base_any': base_any,
         'by_year': by_year, 'by_half': by_half,
@@ -632,7 +637,7 @@ def build_strict2_pack(signals, base_any, calendar, split_date, ev_path, univers
 
 def write_csv(signals, path=None):
     cols = ['sel_date', 'code', 'name', 'ind', 'grade', 'hits', 'pattern', 'pattern4', 'is_new',
-            'close', 'e12', 'e50', 'bull', 'e12_gt_e50', 'vr',
+            'open', 'close', 'day_chg', 'e12', 'e50', 'bull', 'e12_gt_e50', 'vr',
             'entry_date', 'entry_px', 'track_days', 'status', 'ret10', 'base10', 'excess10']
     cols += ['ret_%d' % h for h in HORIZONS] + ['base_%d' % h for h in HORIZONS] + \
             ['excess_%d' % h for h in HORIZONS]
@@ -641,7 +646,9 @@ def write_csv(signals, path=None):
         w.writerow(cols)
         for r in signals:
             row = [r['sel_date'], r['code'], r['name'], r['ind'], r['grade'], r['hits'],
-                   r['pattern'], r.get('pattern4', ''), int(r['is_new']), r['close'], r['e12'], r['e50'],
+                   r['pattern'], r.get('pattern4', ''), int(r['is_new']),
+                   r.get('open', ''), r['close'], r.get('day_chg', ''),
+                   r['e12'], r['e50'],
                    int(r['bull']), int(r['e12_gt_e50']), r['vr'],
                    r['entry_date'], r['entry_px'], r['track_days'], r['status'],
                    r['ret'].get('10'), r['base'].get('10'), r['excess'].get('10')]
@@ -716,8 +723,8 @@ def write_report(d, path=None):
               '> 全历史信号与 10 日涨幅明细：webapp/bodywrap/signals.csv（每日跑批自动补齐跟踪中信号）。']
     s2 = d.get('strict2')
     if s2:
-        lines += ['', '---', '', '## 口径二 · 连续两日阳柱裹双线（不看 MA89）',
-                  '- 信号：**连续两个交易日均为阳线（收>开）**，且阳柱实体 `[开, 收]` 同时包住 EXPMA12 与 EXPMA50；MA89 不参与任何判定。',
+        lines += ['', '---', '', '## 口径二 · 连续两日上涨阳线裹双线（不看 MA89）',
+                  '- 信号：**连续两个交易日均为上涨阳线**（`收>开` 且 `收>昨收`，当日涨跌幅为正），阳柱实体 `[开, 收]` 同时包住 EXPMA12 与 EXPMA50；**低开高走但当日仍收跌/平盘的假阳线一律剔除**；MA89 不参与任何判定。信号表 `day_chg` 列为选入日当日涨跌幅，可逐条核验。',
                   '- t 日收盘确认、**t+1 开盘成交**；基准（同成交日全市场等权 + 同期任意日）与三关口徑同口径一。',
                   '- 全历史信号 %d 个，成熟 %d / 跟踪中 %d；当日入选 %d 只（首次达成 %d / 簇内延续 %d）。' % (
                       s2['n_signals'], s2['tracking']['matured'], s2['tracking']['tracking'],

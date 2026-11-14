@@ -803,7 +803,7 @@ if out['date']:
                         '已过' if _bw['year_robust'] else '未过', _bw['date']))
         _s2 = _bw.get('strict2') or {}
         if _s2:
-            lines.append('- 口径二「连续两日阳柱裹双线（不看89线）」：全历史 **%d** 个信号，'
+            lines.append('- 口径二「连续两日上涨阳线裹双线（不看89线，当天下跌剔除）」：全历史 **%d** 个信号，'
                          '5 日超额 **%+.2fpp**、10 日 **%+.2fpp**、超额胜率 %.1f%%；'
                          '当日入选 **%d** 只。③分年份%s，同样仅标描述/候选；'
                          '明细 webapp/bodywrap/signals_strict2.csv。'

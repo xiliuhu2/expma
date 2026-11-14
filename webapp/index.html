@@ -1046,7 +1046,7 @@ body.idxResizing,body.idxResizing *{user-select:none!important;cursor:inherit!im
     </h3>
     <div class="fcTabs" style="margin-bottom:8px">
       <button class="bsTab on" id="bwModeLax" onclick="bwSetMode('lax')" title="阴阳不限，3 日内 ≥2 天实体包住双线">口径一 · 3日≥2天（阴阳不限）</button>
-      <button class="bsTab" id="bwModeS2" onclick="bwSetMode('strict2')" title="连续两个交易日均为阳线且阳柱实体包住双线，MA89 不参与判定">口径二 · 连续2日阳柱裹双线（不看89线）</button>
+      <button class="bsTab" id="bwModeS2" onclick="bwSetMode('strict2')" title="连续两个交易日均为上涨阳线（收>开且收>昨收），阳柱实体包住双线，MA89 不参与判定">口径二 · 连续2日上涨阳线裹双线（不看89线）</button>
     </div>
     <div class="muted" style="line-height:1.8;margin-bottom:4px" id="bwRule"></div>
     <div class="fcCtl">
@@ -5314,17 +5314,17 @@ function bwExport(){
   if(!BWD)return;
   const a=document.createElement('a');
   a.href=BWS.mode==='strict2'?'/api/bodywrap_strict2.csv':'/api/bodywrap_signals.csv';
-  a.download=(BWS.mode==='strict2'?'连续两阳裹双线':'双线裹实体')+'_signals_'+BWD.as_of+'.csv';a.click();
+  a.download=(BWS.mode==='strict2'?'连续两日上涨阳线裹双线':'双线裹实体')+'_signals_'+BWD.as_of+'.csv';a.click();
 }
 function bwBuild(){
   const h=String(BWS.hold),s=BWD.summary.by_h[h]||{},S2=BWS.mode==='strict2';
   const a=BWD.by_grade.A[h]||{},bb=BWD.by_grade.B[h]||{};
-  const s3=(BWD.sensitivity||[]).find(v=>v.label==='连续 3 天阳柱');
+  const s3=(BWD.sensitivity||[]).find(v=>v.label==='连续 3 天上涨阳柱');
   const s3v=s3&&s3.by_h[h]?s3.by_h[h].excess:null;
-  bwEl('bwTitle').textContent=S2?'连续2日阳柱裹双线（不看89线）':'3 日内 ≥2 天实体包住 EXPMA12/50';
+  bwEl('bwTitle').textContent=S2?'连续2日上涨阳线裹双线（不看89线）':'3 日内 ≥2 天实体包住 EXPMA12/50';
   bwEl('bwAsOf').textContent='基准日 '+BWD.as_of+' · '+(BWD.n_stocks||'—')+' 只 · '+BWD.n_days+' 根K线 · '+BWD.n_signals+' 个信号';
   bwEl('bwRule').innerHTML=S2?
-    '<b>信号</b>：连续两个交易日均为阳线（收&gt;开），阳柱实体 <code>[开, 收]</code> 同时包住 EXPMA12 与 EXPMA50；<b>MA89 不参与判定</b>。<b>纪律</b>：t 日收盘确认 → <b>t+1 开盘成交</b>；超额对比「同成交日全市场等权」与「同期任意日」两条基线。<b>边界</b>：三关③未过，<b>全部结论仅标描述/候选</b>；持有期越长超额越负。':
+    '<b>信号</b>：连续两个交易日均为<b>上涨阳线</b>（收&gt;开 <b>且 收&gt;昨收</b>，当日涨跌幅为正），阳柱实体 <code>[开, 收]</code> 同时包住 EXPMA12 与 EXPMA50；<b>低开高走但当日仍收跌的假阳线不算</b>；<b>MA89 不参与判定</b>。<b>纪律</b>：t 日收盘确认 → <b>t+1 开盘成交</b>；超额对比「同成交日全市场等权」与「同期任意日」两条基线。<b>边界</b>：三关③未过，<b>全部结论仅标描述/候选</b>；持有期越长超额越负。':
     '<b>信号</b>：实体 <code>[min(开,收), max(开,收)]</code> 同时包住 EXPMA12 与 EXPMA50；最近 3 个交易日 ≥2 天入选（B 级），3 天全中（A 级），阴阳不限。<b>纪律</b>：t 日收盘确认 → <b>t+1 开盘成交</b>；超额对比「同成交日全市场等权」与「同期任意日」两条基线。<b>边界</b>：三关③未过，<b>全部结论仅标描述/候选</b>；A 级并不等于更优。';
   bwEl('bwKpis').innerHTML=
     bwKpi('全历史信号',BWD.n_signals)+
@@ -5335,7 +5335,7 @@ function bwBuild(){
     bwKpi(h+'日超额',bwN(s.excess)+'pp',s.excess>0?'up':'down')+
     bwKpi('超额胜率',s.win==null?'—':s.win.toFixed(1)+'%')+
     bwKpi(S2?'首次达成 / 簇内延续超额':'A级超额 / B级超额',bwN(a.excess)+' / '+bwN(bb.excess)+'pp',((a.excess||0)>0?'up':'down'))+
-    bwKpi(S2?'连续3天阳柱对照':'仅1天命中对照',S2?bwN(s3v)+'pp':bwN(BWD.unconfirmed_excess)+'pp','down');
+    bwKpi(S2?'连续3天上涨阳线对照':'仅1天命中对照',S2?bwN(s3v)+'pp':bwN(BWD.unconfirmed_excess)+'pp','down');
   bwEl('bwRecentN').textContent='（最近 '+BWD.recent.length+' 条 · 按选入日倒序 · 10日涨幅每日跑批补齐）';
   bwRenderTable();bwRenderCase();bwRenderStats();bwSetData();bwDraw();
 }
